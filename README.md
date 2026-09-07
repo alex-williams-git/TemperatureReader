@@ -22,9 +22,6 @@ v1 scope is **sensing + logging/dashboard only** — no active fan control yet.
                       - live values + historical chart
 ```
 
-Why these choices (polling over WebSocket, SQLite over Postgres, JSON over
-serial, …) are documented in [CLAUDE.md](CLAUDE.md#key-decisions-and-why).
-
 ## Repository layout
 
 | Path | What |
@@ -32,7 +29,6 @@ serial, …) are documented in [CLAUDE.md](CLAUDE.md#key-decisions-and-why).
 | [`arduino/TemperatureSerializer/`](arduino/TemperatureSerializer/) | PlatformIO project for the Uno (`env:uno`) |
 | [`backend/`](backend/) | FastAPI service — serial reader, SQLite, REST API ([README](backend/README.md)) |
 | [`frontend/`](frontend/) | Next.js dashboard — live values + drill-down charts |
-| [`CLAUDE.md`](CLAUDE.md) | Full design rationale and status |
 
 ## Quick start
 
