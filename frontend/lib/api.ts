@@ -1,6 +1,9 @@
-// Backend base URL. Override with NEXT_PUBLIC_API_BASE (see .env.local.example).
+// Backend base URL. Defaults to the same-origin proxy (see next.config.ts
+// `rewrites`), which forwards /api/* to the backend server-side — so the
+// browser never makes a cross-origin call and no backend URL is baked in here.
+// Override with NEXT_PUBLIC_API_BASE only to hit the backend directly.
 export const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000"
+  process.env.NEXT_PUBLIC_API_BASE ?? "/api"
 ).replace(/\/$/, "");
 
 export interface Reading {

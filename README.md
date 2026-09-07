@@ -46,7 +46,28 @@ pio run -d arduino/TemperatureSerializer -t upload
 
 It then emits one JSON line every couple of seconds over serial at 9600 baud.
 
-### 2. Run the backend
+### 2. Run the stack with Docker (recommended)
+
+```powershell
+# 1. Bridge the Arduino's COM port to TCP (native — Docker on Windows can't
+#    see COM ports directly). Leave this running.
+serial-bridge\run-bridge.bat
+
+# 2. Bring up the backend + frontend
+copy .env.example .env        # optional — only to change SERIAL_PORT / ports
+docker compose up --build
+```
+
+- Dashboard: <http://localhost:3000>
+- API / Swagger: <http://localhost:8000/docs>
+
+The frontend reaches the API through a same-origin `/api` proxy, so there's
+no CORS to configure. SQLite persists in the `db-data` volume across rebuilds
+(`docker compose down -v` wipes it). See
+[`serial-bridge/README.md`](serial-bridge/README.md) for why the bridge exists
+and how to auto-start it at logon.
+
+### 3. Or run the backend natively (dev)
 
 ```bash
 cd backend
@@ -66,17 +87,21 @@ cp .env.example .env                             # set SERIAL_PORT (e.g. COM3, /
 | `GET /readings/aggregate?start=&end=&bucket=&tz_offset_minutes=` | time-bucketed avg/min/max |
 | `GET /docs` | interactive API docs |
 
-Only one process can hold the serial port — close any Serial Monitor first.
-See [`backend/README.md`](backend/README.md) for full config and notes.
+Only one process can hold the serial port — close any Serial Monitor first
+(including `serial-bridge`, if it's running). See
+[`backend/README.md`](backend/README.md) for full config and notes.
 
-### 3. Run the frontend
+### 4. Or run the frontend natively (dev)
 
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local     # NEXT_PUBLIC_API_BASE, defaults to :8000
 npm run dev                          # http://localhost:3000
 ```
+
+`npm run dev` proxies `/api/*` to `http://localhost:8000` by default (set
+`BACKEND_ORIGIN` to change it), so the native backend above just needs to be
+running.
 
 The dashboard shows the live reading plus a **click-to-drill history chart**:
 week → day → hour → 10-minute raw, with a shaded min/max band, a °C/°F
@@ -88,7 +113,7 @@ query, so it stays fast regardless of how much history accumulates.
 - [x] Arduino emits structured JSON over serial
 - [x] FastAPI backend — serial reader + SQLite + REST endpoints
 - [x] Next.js frontend — live reading + drill-down history charts
-- [ ] Dockerfiles + `docker-compose.yml` (serial passthrough)
+- [x] Dockerfiles + `docker-compose.yml` + `serial-bridge` (COM→TCP on Windows)
 
 ## Hardware
 
