@@ -1,0 +1,50 @@
+"use client";
+
+import { Activity } from "lucide-react";
+import { useLocalStorageState } from "@/lib/useLocalStorageState";
+import { useIsClient } from "@/lib/clientHooks";
+import type { Unit } from "@/lib/format";
+import { LiveReading } from "./LiveReading";
+import { HistoryChart } from "./HistoryChart";
+import { ThemeToggle } from "./ThemeToggle";
+import { UnitToggle } from "./UnitToggle";
+
+export function Dashboard() {
+  const [unit, setUnit] = useLocalStorageState<Unit>("dht.unit", "c");
+
+  // This whole dashboard is live/clock/locale/localStorage-driven — nothing
+  // here is meaningful to server-render. Gate on the client so the server and
+  // the first client render agree (skeleton), then paint the real thing.
+  if (!useIsClient()) {
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <div className="h-10 w-48 animate-pulse rounded-lg bg-surface-2" />
+        <div className="mt-6 h-40 animate-pulse rounded-2xl bg-surface-2" />
+        <div className="mt-6 h-160 animate-pulse rounded-2xl bg-surface-2" />
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
+      <header className="flex items-center gap-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
+          <Activity size={20} />
+        </span>
+        <div className="mr-auto">
+          <h1 className="text-lg font-semibold leading-tight">DHT11 Monitor</h1>
+          <p className="text-xs text-muted">Temperature &amp; humidity · Arduino Uno</p>
+        </div>
+        <UnitToggle unit={unit} onChange={setUnit} />
+        <ThemeToggle />
+      </header>
+
+      <LiveReading unit={unit} />
+      <HistoryChart unit={unit} />
+
+      <footer className="pb-4 text-center text-xs text-muted">
+        Polls the FastAPI backend · readings stored in SQLite
+      </footer>
+    </main>
+  );
+}

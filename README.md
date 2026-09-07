@@ -18,7 +18,7 @@ v1 scope is **sensing + logging/dashboard only** — no active fan control yet.
                       - REST API (polled, not WebSocket)
                                  |  HTTP
                                  v
-                    [Next.js frontend]  (not built yet)
+                    [Next.js frontend]
                       - live values + historical chart
 ```
 
@@ -31,7 +31,7 @@ serial, …) are documented in [CLAUDE.md](CLAUDE.md#key-decisions-and-why).
 |---|---|
 | [`arduino/TemperatureSerializer/`](arduino/TemperatureSerializer/) | PlatformIO project for the Uno (`env:uno`) |
 | [`backend/`](backend/) | FastAPI service — serial reader, SQLite, REST API ([README](backend/README.md)) |
-| `frontend/` | Next.js dashboard *(not built yet)* |
+| [`frontend/`](frontend/) | Next.js dashboard — live values + drill-down charts |
 | [`CLAUDE.md`](CLAUDE.md) | Full design rationale and status |
 
 ## Quick start
@@ -62,16 +62,32 @@ cp .env.example .env                             # set SERIAL_PORT (e.g. COM3, /
 | `GET /health` | serial link status, last error, row count |
 | `GET /readings/latest` | most recent reading |
 | `GET /readings/history?since=<iso>&limit=<n>` | history, oldest-first |
+| `GET /readings/range?start=<iso>&end=<iso>` | raw readings in a window |
+| `GET /readings/aggregate?start=&end=&bucket=&tz_offset_minutes=` | time-bucketed avg/min/max |
 | `GET /docs` | interactive API docs |
 
 Only one process can hold the serial port — close any Serial Monitor first.
 See [`backend/README.md`](backend/README.md) for full config and notes.
 
+### 3. Run the frontend
+
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local     # NEXT_PUBLIC_API_BASE, defaults to :8000
+npm run dev                          # http://localhost:3000
+```
+
+The dashboard shows the live reading plus a **click-to-drill history chart**:
+week → day → hour → 10-minute raw, with a shaded min/max band, a °C/°F
+toggle, and light/dark themes. Each zoom level is a server-side time-bucket
+query, so it stays fast regardless of how much history accumulates.
+
 ## Status
 
 - [x] Arduino emits structured JSON over serial
 - [x] FastAPI backend — serial reader + SQLite + REST endpoints
-- [ ] Next.js frontend — live reading + history chart
+- [x] Next.js frontend — live reading + drill-down history charts
 - [ ] Dockerfiles + `docker-compose.yml` (serial passthrough)
 
 ## Hardware

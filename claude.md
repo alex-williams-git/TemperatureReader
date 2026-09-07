@@ -73,15 +73,22 @@ dht11-fan-project/
 │   ├── .env.example
 │   ├── requirements.txt
 │   └── Dockerfile             # (not written yet)
-├── frontend/
-│   ├── app/                    # Next.js app router
-│   │   ├── page.tsx
+├── frontend/                   # Next.js 16 (App Router) + React 19 + Tailwind v4
+│   ├── app/
+│   │   ├── layout.tsx          # + providers.tsx (next-themes)
+│   │   ├── page.tsx            # renders <Dashboard/>
+│   │   ├── globals.css         # design tokens, light/dark, blue palette
 │   │   └── components/
-│   │       ├── LiveReading.tsx
-│   │       └── HistoryChart.tsx
+│   │       ├── Dashboard.tsx       # client-gated shell, holds unit state
+│   │       ├── LiveReading.tsx     # polls /readings/latest
+│   │       ├── HistoryChart.tsx    # drill-down zoom stack + breadcrumb
+│   │       ├── MetricChart.tsx     # one Recharts panel (avg line + min/max band)
+│   │       ├── ConnectionBadge.tsx / ThemeToggle.tsx / UnitToggle.tsx
+│   ├── lib/                    # api.ts, zoom.ts, format.ts, clientHooks.ts, …
+│   ├── .env.local.example
 │   ├── package.json
-│   └── Dockerfile
-├── docker-compose.yml
+│   └── Dockerfile             # (not written yet)
+├── docker-compose.yml         # (not written yet)
 └── .gitignore
 ```
 
@@ -139,13 +146,32 @@ void loop() {
 - [x] Arduino reads DHT11 and prints valid data over serial
 - [x] Arduino sketch updated to emit structured JSON (flashed to Uno on COM3)
 - [x] Python FastAPI backend (serial reader + SQLite + REST endpoints)
-      — runs natively in `backend/.venv`; endpoints: `/health`,
-      `/readings/latest`, `/readings/history?since=&limit=`. Verified against
-      the live sensor. Docker deferred (see decision below).
-- [ ] Next.js frontend (live reading + history chart)
+      — runs natively in `backend/.venv`. Endpoints: `/health`,
+      `/readings/latest`, `/readings/history`, `/readings/range` (raw window),
+      `/readings/aggregate` (time-bucketed avg/min/max, tz-aware). Verified
+      against the live sensor. Docker deferred (see decision below).
+- [x] Next.js frontend (live reading + drill-down history charts)
+      — `frontend/`, Next 16 + React 19 + Tailwind v4. Runs on :3000 against
+      the backend on :8000. Live card polls `/readings/latest` (SWR); history
+      is a click-to-drill zoom stack (week → day → hour → 10-min raw) with a
+      shaded min/max band, °C/°F toggle, and light/dark themes. Verified in
+      Chrome (build + lint + typecheck clean).
 - [ ] Dockerfiles for backend and frontend
 - [ ] docker-compose.yml with serial device passthrough
 - [ ] Push to GitHub
+
+## Frontend notes
+
+- **Zoom = drill-down, not free pan.** A week at 10s cadence is ~60k points;
+  each zoom level is instead a server-side `GROUP BY` time-bucket query
+  (`/readings/aggregate`) returning a handful of points. Deepest level
+  (10-min) switches to `/readings/range` for raw readings.
+- **Bucket edges are tz-aware.** The frontend sends `tz_offset_minutes` so
+  "days" and "hours" start at the viewer's local midnight/hour, not UTC's.
+- **Whole dashboard is client-gated** (`useIsClient`, an external-store hook).
+  It's all live/clock/localStorage-driven — nothing meaningful to SSR — and
+  gating kills hydration mismatches in one place.
+- Charts: Recharts. Theme + unit persisted to `localStorage`.
 
 ## Learning goal note
 

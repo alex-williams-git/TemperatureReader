@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* next-themes toggles `class="dark"` on <html>; make Tailwind's dark: variant
+   follow that class instead of the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Design tokens -------------------------------------------------------
+   Raw values live on :root / .dark and swap by class. @theme inline (below)
+   maps them to Tailwind color utilities like bg-surface / text-muted. */
+:root {
+  --bg: #eef3fa;
+  --surface: #ffffff;
+  --surface-2: #f2f6fc;
+  --border: #d8e2f0;
+  --text: #0e1a2b;
+  --muted: #566579;
+
+  --primary: #2563eb;      /* blue-600 — the app's dominant accent */
+  --primary-hover: #1d4ed8;
+  --primary-soft: #dbeafe;
+
+  --temp: #f97316;         /* orange — temperature series */
+  --temp-soft: #fdba7480;
+  --humidity: #0ea5e9;     /* sky blue — humidity series */
+  --humidity-soft: #7dd3fc80;
+
+  --ok: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+}
+
+.dark {
+  --bg: #0a1120;
+  --surface: #111c2f;
+  --surface-2: #16233b;
+  --border: #253451;
+  --text: #e7eef8;
+  --muted: #90a1ba;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-soft: #1e2b45;
+
+  --temp: #fb923c;
+  --temp-soft: #9a3412aa;
+  --humidity: #38bdf8;
+  --humidity-soft: #075985aa;
+
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --bad: #f87171;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-temp: var(--temp);
+  --color-humidity: var(--humidity);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Recharts injects inline SVG; keep its surfaces transparent so our card bg
+   shows through in both themes. */
+.recharts-surface {
+  overflow: visible;
+}
