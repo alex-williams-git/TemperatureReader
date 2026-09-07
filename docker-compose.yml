@@ -1,0 +1,36 @@
+name: dht11-monitor
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      # The Arduino's serial stream, reached over TCP from the Windows-side
+      # serial-bridge (run serial-bridge/run-bridge.bat on the host).
+      SERIAL_PORT: ${SERIAL_PORT:-socket://host.docker.internal:9600}
+      SERIAL_BAUD: ${SERIAL_BAUD:-9600}
+      DB_PATH: /data/readings.db
+    volumes:
+      # SQLite on a named volume: survives image rebuilds, and avoids the
+      # WAL/locking quirks of a Windows bind mount into a Linux container.
+      - db-data:/data
+    extra_hosts:
+      # Lets the container resolve the host on Linux too (automatic on Docker
+      # Desktop, but harmless to declare).
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Optional — only needed to hit the API / Swagger UI directly at :8000.
+      - "${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    # The /api rewrite target is baked in at image build time
+    # (ENV BACKEND_ORIGIN in frontend/Dockerfile => http://backend:8000).
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:

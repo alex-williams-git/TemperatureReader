@@ -72,7 +72,13 @@ dht11-fan-project/
 │   │   └── config.py          # env-var settings (pydantic-settings)
 │   ├── .env.example
 │   ├── requirements.txt
-│   └── Dockerfile             # (not written yet)
+│   ├── .dockerignore
+│   └── Dockerfile             # python:3.12-slim, non-root, /data volume
+├── serial-bridge/             # native Windows helper: COM port -> TCP socket
+│   ├── bridge.py              #   (so the Dockerized backend can read serial)
+│   ├── run-bridge.bat
+│   ├── requirements.txt
+│   └── README.md
 ├── frontend/                   # Next.js 16 (App Router) + React 19 + Tailwind v4
 │   ├── app/
 │   │   ├── layout.tsx          # + providers.tsx (next-themes)
@@ -86,22 +92,40 @@ dht11-fan-project/
 │   │       ├── ConnectionBadge.tsx / ThemeToggle.tsx / UnitToggle.tsx
 │   ├── lib/                    # api.ts, zoom.ts, format.ts, clientHooks.ts, …
 │   ├── .env.local.example
+│   ├── next.config.ts          # output: "standalone" + /api -> backend rewrite
 │   ├── package.json
-│   └── Dockerfile             # (not written yet)
-├── docker-compose.yml         # (not written yet)
+│   ├── .dockerignore
+│   └── Dockerfile             # multi-stage, standalone output, node:22-alpine
+├── docker-compose.yml         # backend + frontend; named volume for the DB
+├── .env.example               # compose reads .env here (SERIAL_PORT, ports)
 └── .gitignore
 ```
 
 ## Known gotchas to handle carefully
 
-- **Serial port passthrough in Docker.** The backend container needs
-  access to the host's `/dev/ttyUSB0` (or equivalent) — requires explicit
-  `devices:` config in docker-compose. This is the fiddliest part of the
-  dockerization.
-- **SQLite file must be a mounted volume**, not baked into the image, or
-  data is lost on every rebuild.
-- **CORS** needs configuring on FastAPI once frontend (port 3000) and
-  backend (port 8000) are separate containers.
+- **Serial passthrough on Windows + Docker Desktop is not possible directly.**
+  Docker Desktop runs containers in a WSL2 Linux VM; a Windows `COM3` handle
+  can't be handed to it (the `devices:` mapping only works on a Linux Docker
+  host). Solution in this repo: `serial-bridge/bridge.py` runs *natively* on
+  Windows, holds the COM port, and re-exposes the byte stream on TCP :9600.
+  The backend container sets `SERIAL_PORT=socket://host.docker.internal:9600`
+  and pyserial's `serial_for_url` handles the rest — the `readline()` +
+  reconnect loop in `serial_reader.py` is unchanged. On a Linux host later,
+  drop the bridge and use `SERIAL_PORT=/dev/ttyACM0` + `devices:` instead.
+- **The serial-bridge must be running on the host** whenever the stack is up
+  (`serial-bridge/run-bridge.bat`, or a Task Scheduler "at logon" task). It's
+  the one piece that can't be containerized.
+- **SQLite lives on a named volume** (`db-data`), not a bind mount: bind
+  mounts from Windows into a Linux container have known WAL/locking quirks.
+  Inspect/reset with `docker compose down -v` or `docker run --rm -v
+  dht11-monitor_db-data:/data ...`.
+- **CORS is now bypassed by default.** The frontend calls a same-origin `/api`
+  path that the Next server proxies to the backend (`next.config.ts` rewrite),
+  so no browser cross-origin request is made. The backend still has the
+  CORSMiddleware for direct `:8000` access; `CORS_ORIGINS` only matters then.
+- **The `/api` rewrite target is baked at `next build` time**, not read at
+  runtime — `frontend/Dockerfile` sets `BACKEND_ORIGIN=http://backend:8000`
+  in the builder stage.
 
 ## Current Arduino sketch (working, prints readings to serial)
 
@@ -156,8 +180,13 @@ void loop() {
       is a click-to-drill zoom stack (week → day → hour → 10-min raw) with a
       shaded min/max band, °C/°F toggle, and light/dark themes. Verified in
       Chrome (build + lint + typecheck clean).
-- [ ] Dockerfiles for backend and frontend
-- [ ] docker-compose.yml with serial device passthrough
+- [x] Dockerfiles for backend and frontend + `docker-compose.yml`
+      — `backend/Dockerfile` (python:3.12-slim, non-root, `/data` volume),
+      `frontend/Dockerfile` (multi-stage → Next standalone on node:22-alpine),
+      `serial-bridge/` (native Windows COM→TCP helper — see gotchas). Frontend
+      talks to the backend through a same-origin `/api` rewrite. `next build`
+      verified clean; **image build/run not yet verified** (Docker Desktop was
+      down when written) — run `docker compose build && docker compose up`.
 - [ ] Push to GitHub
 
 ## Frontend notes

@@ -3,11 +3,18 @@
 Design notes:
 - One blocking `readline()` loop on a daemon thread. pyserial is blocking;
   the DHT11 emits ~one line / 2s, so a thread is the natural fit (no asyncio).
-- Resilient to the USB device disappearing: on SerialException it drops the
-  connection, waits, and retries forever until stop() is called.
+- `serial_for_url` (not `Serial`) so SERIAL_PORT accepts either a local device
+  ("COM3", "/dev/ttyACM0") or a URL ("socket://host.docker.internal:9600").
+  The URL form is how the Dockerized backend reaches the Windows-side
+  serial-bridge; pyserial raises SerialException on socket loss just like a
+  real unplug, so the reconnect loop below covers both.
+- Resilient to the device (or bridge socket) disappearing: on SerialException
+  it drops the connection, waits, and retries forever until stop() is called.
 - Tolerates garbage: the line right after a board reset is often partial or
   noisy. Non-JSON lines are skipped. `{"error": ...}` lines are recorded but
   not stored as readings (one parse path, matching the CLAUDE.md contract).
+  (pyserial also flushes the socket's input buffer on open, so the first line
+  after each `socket://` (re)connect is typically dropped — harmless here.)
 """
 import json
 import logging
@@ -53,9 +60,9 @@ class SerialReader:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                with serial.Serial(
+                with serial.serial_for_url(
                     settings.serial_port,
-                    settings.serial_baud,
+                    baudrate=settings.serial_baud,
                     timeout=settings.serial_read_timeout,
                 ) as ser:
                     self.connected = True

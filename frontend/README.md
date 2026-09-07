@@ -4,12 +4,17 @@ Next.js 16 (App Router) · React 19 · Tailwind v4 · Recharts · SWR.
 
 ```bash
 npm install
-cp .env.local.example .env.local     # NEXT_PUBLIC_API_BASE (default http://localhost:8000)
 npm run dev                          # http://localhost:3000
 ```
 
-The backend (`../backend`) must be running, and its `CORS_ORIGINS` must
-include this origin (it defaults to `http://localhost:3000`).
+The backend (`../backend`) must be running. The browser calls a same-origin
+`/api/*` path that the Next server proxies to the backend
+(`next.config.ts` → `rewrites`), so there's no CORS to configure. The proxy
+target defaults to `http://localhost:8000`; override with `BACKEND_ORIGIN`.
+
+Production image: `output: "standalone"` in `next.config.ts` + a multi-stage
+`Dockerfile`. The `/api` target is resolved at build time, so the Dockerfile
+sets `BACKEND_ORIGIN=http://backend:8000` before `next build`.
 
 ## How it's put together
 
