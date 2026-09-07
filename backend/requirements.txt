@@ -1,0 +1,5 @@
+fastapi>=0.115,<0.117
+uvicorn[standard]>=0.32,<0.36
+pyserial>=3.5,<4
+pydantic>=2.9,<3
+pydantic-settings>=2.5,<3
