@@ -78,3 +78,51 @@ def history(since: str | None, limit: int) -> list[sqlite3.Row]:
             (limit,),
         ).fetchall()
     return list(reversed(rows))
+
+
+def history_range(start: str, end: str, limit: int) -> list[sqlite3.Row]:
+    """Raw readings with start <= ts < end, oldest-first. Used by the
+    frontend's deepest zoom level (a ~10-minute window)."""
+    return _require_conn().execute(
+        "SELECT * FROM readings WHERE ts >= ? AND ts < ? ORDER BY id ASC LIMIT ?",
+        (start, end, limit),
+    ).fetchall()
+
+
+def aggregate(
+    start: str, end: str, bucket_seconds: int, tz_offset_seconds: int = 0
+) -> list[sqlite3.Row]:
+    """Group readings in [start, end) into fixed-width time buckets, returning
+    avg/min/max per bucket for each metric.
+
+    Bucket edges are aligned to local midnight/hour by shifting the epoch by
+    `tz_offset_seconds` before the floor-divide and shifting back after — so a
+    viewer in UTC-4 sees days that start at their midnight, not UTC's.
+    """
+    return _require_conn().execute(
+        """
+        SELECT
+            ((CAST(strftime('%s', substr(ts, 1, 19)) AS INTEGER) + :off) / :bs) * :bs - :off
+                                     AS bucket_epoch,
+            COUNT(*)                 AS n,
+            AVG(temp_c)              AS temp_c_avg,
+            MIN(temp_c)              AS temp_c_min,
+            MAX(temp_c)              AS temp_c_max,
+            AVG(temp_f)              AS temp_f_avg,
+            MIN(temp_f)              AS temp_f_min,
+            MAX(temp_f)              AS temp_f_max,
+            AVG(humidity)            AS humidity_avg,
+            MIN(humidity)            AS humidity_min,
+            MAX(humidity)            AS humidity_max
+        FROM readings
+        WHERE ts >= :start AND ts < :end
+        GROUP BY bucket_epoch
+        ORDER BY bucket_epoch
+        """,
+        {
+            "bs": bucket_seconds,
+            "off": tz_offset_seconds,
+            "start": start,
+            "end": end,
+        },
+    ).fetchall()

@@ -5,13 +5,21 @@ Live data is polled over REST (see CLAUDE.md) — no WebSocket. The DHT11's
 """
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .db import count_readings, history, init_db, latest_reading
-from .models import Health, Reading
+from .db import (
+    aggregate,
+    count_readings,
+    history,
+    history_range,
+    init_db,
+    latest_reading,
+)
+from .models import AggregateBucket, Health, Reading
 from .serial_reader import SerialReader
 
 logging.basicConfig(
@@ -20,6 +28,14 @@ logging.basicConfig(
 )
 
 reader = SerialReader()
+
+# Bucket widths the frontend's zoom levels ask for.
+BUCKET_SECONDS = {
+    "day": 86_400,
+    "hour": 3_600,
+    "ten_min": 600,
+    "minute": 60,
+}
 
 
 @asynccontextmanager
@@ -70,3 +86,57 @@ def readings_history(
     limit: int = Query(500, ge=1, le=5000),
 ) -> list[Reading]:
     return [Reading(**dict(r)) for r in history(since, limit)]
+
+
+@app.get("/readings/range", response_model=list[Reading])
+def readings_range(
+    start: str = Query(..., description="ISO-8601 UTC, inclusive"),
+    end: str = Query(..., description="ISO-8601 UTC, exclusive"),
+    limit: int = Query(2000, ge=1, le=10_000),
+) -> list[Reading]:
+    """Raw readings inside a window — the deepest zoom level on the frontend."""
+    return [Reading(**dict(r)) for r in history_range(start, end, limit)]
+
+
+@app.get("/readings/aggregate", response_model=list[AggregateBucket])
+def readings_aggregate(
+    start: str = Query(..., description="ISO-8601 UTC, inclusive"),
+    end: str = Query(..., description="ISO-8601 UTC, exclusive"),
+    bucket: str = Query("hour", description="day | hour | ten_min | minute"),
+    tz_offset_minutes: int = Query(
+        0,
+        ge=-840,
+        le=840,
+        description="Viewer's offset from UTC in minutes (JS: -getTimezoneOffset())"
+        ", so bucket edges land on local midnight/hour",
+    ),
+) -> list[AggregateBucket]:
+    if bucket not in BUCKET_SECONDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"bucket must be one of {sorted(BUCKET_SECONDS)}",
+        )
+    rows = aggregate(
+        start, end, BUCKET_SECONDS[bucket], tz_offset_seconds=tz_offset_minutes * 60
+    )
+    return [
+        AggregateBucket(
+            bucket_start=datetime.fromtimestamp(
+                r["bucket_epoch"], tz=timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            count=r["n"],
+            # avg keeps 2 decimals: averaging many noisy ±2°C samples genuinely
+            # narrows the estimate of the mean — not false precision. min/max are
+            # single raw readings, so they stay at the sensor's 1 decimal.
+            temp_c_avg=round(r["temp_c_avg"], 2),
+            temp_c_min=round(r["temp_c_min"], 1),
+            temp_c_max=round(r["temp_c_max"], 1),
+            temp_f_avg=round(r["temp_f_avg"], 2),
+            temp_f_min=round(r["temp_f_min"], 1),
+            temp_f_max=round(r["temp_f_max"], 1),
+            humidity_avg=round(r["humidity_avg"], 2),
+            humidity_min=round(r["humidity_min"], 1),
+            humidity_max=round(r["humidity_max"], 1),
+        )
+        for r in rows
+    ]
