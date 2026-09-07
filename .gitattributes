@@ -1,0 +1,15 @@
+# Normalize all text files to LF in the repo; Git handles the working-copy
+# checkout per-platform. Keeps line endings consistent across Windows/macOS/Linux.
+* text=auto eol=lf
+
+# Explicit binaries (no EOL munging, no diff noise)
+*.png binary
+*.jpg binary
+*.ico binary
+*.hex binary
+*.bin binary
+
+# Windows-only scripts that must stay CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
