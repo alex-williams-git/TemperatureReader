@@ -40,6 +40,8 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const canDrill = level.childId != null;
 
   // Breadcrumb trail. While drilled in but not panned at the root, frames[0] is a child level and the true root is the live view, so we prepend
+  // root is explicit is true when the root week is a stored frame when panned
+  // Frames is the source of truth and collection of all drilled in frames. Crumbs is just a view of frames for rendering
   const rootIsExplicit = frames.length > 0 && frames[0].levelId === ROOT_LEVEL;
   const crumbs = rootIsExplicit ? frames : [liveFrame, ...frames];
 
@@ -101,7 +103,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   // i indexes crumbs, which may lead with the live root.
   function jumpToCrumb(i: number) {
     if (rootIsExplicit) setFrames((f) => f.slice(0, i + 1));
-    else if (i === 0) setFrames([]); // back to the live view
+    else if (i === 0) setFrames([]); // back to the week level view
     else setFrames((f) => f.slice(0, i)); // crumbs[i] === frames[i - 1]
   }
   function popLevel() {
