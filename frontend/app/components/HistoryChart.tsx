@@ -12,18 +12,37 @@ import {
 } from "lucide-react";
 import { fetcher, qs, type AggregateBucket, type Reading } from "@/lib/api";
 import {
+  bucketStartMs,
   drillInto,
   initialFrame,
   isLive,
   LEVELS,
   pan,
   ROOT_LEVEL,
+  TAIL_BUCKET,
   tzOffsetMinutes,
   type Frame,
 } from "@/lib/zoom";
 import { crumbLabel, pickTemp, unitSymbol, type Unit } from "@/lib/format";
 import { useNow } from "@/lib/clientHooks";
 import { MetricChart, type ChartPoint } from "./MetricChart";
+
+/** One aggregate bucket → a temp point and a humidity point. */
+function bucketToPoints(b: AggregateBucket, unit: Unit) {
+  const t = new Date(b.bucket_start).getTime();
+  const avg = unit === "c" ? b.temp_c_avg : b.temp_f_avg;
+  const lo = unit === "c" ? b.temp_c_min : b.temp_f_min;
+  const hi = unit === "c" ? b.temp_c_max : b.temp_f_max;
+  return {
+    temp: { t, avg, band: [lo, hi] as [number, number], count: b.count },
+    hum: {
+      t,
+      avg: b.humidity_avg,
+      band: [b.humidity_min, b.humidity_max] as [number, number],
+      count: b.count,
+    },
+  };
+}
 
 export function HistoryChart({ unit }: { unit: Unit }) {
   // The drill/pan stack. Empty = the live view. Every entry here is a *frozen*
@@ -48,6 +67,9 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const startIso = new Date(frame.start).toISOString();
   const endIso = new Date(frame.end).toISOString();
   const raw = level.bucket === "raw";
+  // Width of one aggregate bucket (a level's child span == its bucket size);
+  // 0 at the raw level. Used to stretch the last bucket to the window edge.
+  const bucketMs = level.childId ? LEVELS[level.childId].spanMs : 0;
 
   const key = raw
     ? `/readings/range${qs({ start: startIso, end: endIso, limit: 5000 })}`
@@ -64,6 +86,29 @@ export function HistoryChart({ unit }: { unit: Unit }) {
     { refreshInterval: isLive(frame, now) ? 20_000 : 0, keepPreviousData: true },
   );
 
+  // If the window still contains "now", its newest top-level bucket is only
+  // half-full. Re-query just that bucket at a finer size and splice it in, so
+  // the current period shows live movement instead of one flat slab.
+  const tail = TAIL_BUCKET[frame.levelId];
+  const curBucketStart =
+    !raw && tail && frame.start <= now && now <= frame.end
+      ? bucketStartMs(now, bucketMs, tzOffsetMinutes())
+      : 0;
+  const wantTail = curBucketStart >= frame.start && curBucketStart > 0;
+
+  const { data: tailData } = useSWR<AggregateBucket[]>(
+    wantTail
+      ? `/readings/aggregate${qs({
+          start: new Date(curBucketStart).toISOString(),
+          end: endIso,
+          bucket: tail!.param,
+          tz_offset_minutes: tzOffsetMinutes(),
+        })}`
+      : null,
+    fetcher,
+    { refreshInterval: 20_000, keepPreviousData: true },
+  );
+
   const { tempPoints, humPoints } = useMemo(() => {
     const temp: ChartPoint[] = [];
     const hum: ChartPoint[] = [];
@@ -76,23 +121,44 @@ export function HistoryChart({ unit }: { unit: Unit }) {
         temp.push({ t, avg: tv, band: [tv, tv], count: 1 });
         hum.push({ t, avg: r.humidity, band: [r.humidity, r.humidity], count: 1 });
       }
-    } else {
-      for (const b of data as AggregateBucket[]) {
-        const t = new Date(b.bucket_start).getTime();
-        const tAvg = unit === "c" ? b.temp_c_avg : b.temp_f_avg;
-        const tMin = unit === "c" ? b.temp_c_min : b.temp_f_min;
-        const tMax = unit === "c" ? b.temp_c_max : b.temp_f_max;
-        temp.push({ t, avg: tAvg, band: [tMin, tMax], count: b.count });
-        hum.push({
-          t,
-          avg: b.humidity_avg,
-          band: [b.humidity_min, b.humidity_max],
-          count: b.count,
-        });
+      return { tempPoints: temp, humPoints: hum };
+    }
+
+    for (const b of data as AggregateBucket[]) {
+      const p = bucketToPoints(b, unit);
+      temp.push(p.temp);
+      hum.push(p.hum);
+    }
+
+    const tailPts = wantTail && tailData ? tailData.map((b) => bucketToPoints(b, unit)) : [];
+    if (tailPts.length) {
+      // Swap the coarse in-progress bucket for the finer tail, then pull the
+      // curve out to "now" (the live edge). `anchor` points are synthetic:
+      // no dot, no tooltip, not clickable.
+      while (temp.length && temp[temp.length - 1].t >= curBucketStart) {
+        temp.pop();
+        hum.pop();
       }
+      for (const p of tailPts) {
+        temp.push(p.temp);
+        hum.push(p.hum);
+      }
+      const lt = temp[temp.length - 1];
+      const lh = hum[hum.length - 1];
+      if (lt && lt.t < now) {
+        temp.push({ ...lt, t: now, anchor: true });
+        hum.push({ ...lh, t: now, anchor: true });
+      }
+    } else if (!wantTail && bucketMs && temp.length) {
+      // Historical window: extend the last bucket across its slot so the curve
+      // reaches the window edge. (A live window instead grows its finer tail.)
+      const lt = temp[temp.length - 1];
+      const lh = hum[hum.length - 1];
+      temp.push({ ...lt, t: lt.t + bucketMs, anchor: true });
+      hum.push({ ...lh, t: lh.t + bucketMs, anchor: true });
     }
     return { tempPoints: temp, humPoints: hum };
-  }, [data, raw, unit]);
+  }, [data, tailData, raw, bucketMs, wantTail, curBucketStart, now, unit]);
 
   const domain: [number, number] = [frame.start, frame.end];
 

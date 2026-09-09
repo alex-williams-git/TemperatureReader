@@ -9,7 +9,7 @@
 
 export type LevelId = "week" | "day" | "hour" | "ten_min";
 
-export type BucketParam = "day" | "hour" | "ten_min" | "raw";
+export type BucketParam = "day" | "hour" | "ten_min" | "minute" | "raw";
 
 export interface Level {
   id: LevelId;
@@ -38,19 +38,39 @@ export interface Frame {
 
 export const ROOT_LEVEL: LevelId = "week";
 
+/** When a live window's newest bucket is still filling, re-query just that
+ *  bucket at this finer size so the current period shows sub-bucket movement
+ *  instead of one flat point. `null` at the raw level (nothing finer). */
+export const TAIL_BUCKET: Record<LevelId, { param: BucketParam; ms: number } | null> = {
+  week: { param: "hour", ms: HOUR },
+  day: { param: "ten_min", ms: 10 * MIN },
+  hour: { param: "minute", ms: MIN },
+  ten_min: null,
+};
+
+/** Left edge of the fixed-width bucket containing `atMs`, aligned to the
+ *  viewer's local clock (matches the backend's tz-aware bucketing). */
+export function bucketStartMs(atMs: number, widthMs: number, tzOffsetMin: number): number {
+  const off = tzOffsetMin * 60_000;
+  return Math.floor((atMs + off) / widthMs) * widthMs - off;
+}
+
 /** Opening view: the last week, ending now. */
 export function initialFrame(now: number = Date.now()): Frame {
   return { levelId: ROOT_LEVEL, start: now - LEVELS[ROOT_LEVEL].spanMs, end: now };
 }
 
 /** Click a bucket at `frame` → the child-level frame starting at that bucket. */
-export function drillInto(frame: Frame, bucketStartMs: number): Frame | null {
+export function drillInto(frame: Frame, clickedMs: number): Frame | null {
   const child = LEVELS[frame.levelId].childId;
   if (!child) return null;
+  // Ignore clicks at/after the window's end — e.g. the synthetic trailing point
+  // that stretches the last bucket to the edge.
+  if (clickedMs >= frame.end) return null;
   return {
     levelId: child,
-    start: bucketStartMs,
-    end: bucketStartMs + LEVELS[child].spanMs,
+    start: clickedMs,
+    end: clickedMs + LEVELS[child].spanMs,
   };
 }
 
