@@ -19,6 +19,7 @@ export interface ChartPoint {
   avg: number | null;
   band: [number, number] | null; // [min, max] within the bucket
   count: number;
+  anchor?: boolean; // synthetic point that stretches the curve to the window/live edge
 }
 
 interface Props {
@@ -50,6 +51,33 @@ export function MetricChart({
 }: Props) {
   const hasData = data.some((d) => d.avg != null);
   const showDots = data.length <= 40;
+
+  // Skip markers on the synthetic anchor point (and, for resting dots, on gaps).
+  type DotArgs = { cx?: number; cy?: number; index?: number; payload?: ChartPoint };
+  const renderDot = showDots
+    ? ({ cx, cy, index, payload }: DotArgs) => {
+        const key = `dot-${index}`;
+        if (cx == null || cy == null || payload?.anchor || payload?.avg == null) {
+          return <g key={key} />;
+        }
+        return <circle key={key} cx={cx} cy={cy} r={2.5} fill={color} />;
+      }
+    : false;
+  const renderActiveDot = ({ cx, cy, index, payload }: DotArgs) => {
+    const key = `adot-${index}`;
+    if (cx == null || cy == null || payload?.anchor) return <g key={key} />;
+    return (
+      <circle
+        key={key}
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill={color}
+        stroke="var(--surface)"
+        strokeWidth={2}
+      />
+    );
+  };
 
   // Evenly spaced ticks across the *window* (not just where data happens to
   // be) so a sparse day still reads as a day.
@@ -84,7 +112,10 @@ export function MetricChart({
               margin={{ top: 6, right: 8, bottom: 2, left: -12 }}
               onClick={(state: { activeLabel?: string | number }) => {
                 const t = state?.activeLabel;
-                if (canDrill && t != null) onDrill(Number(t));
+                if (!canDrill || t == null) return;
+                // Clicks that resolve to a synthetic anchor point do nothing.
+                if (data.find((d) => d.t === Number(t))?.anchor) return;
+                onDrill(Number(t));
               }}
             >
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
@@ -114,6 +145,7 @@ export function MetricChart({
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   const p = payload[0].payload as ChartPoint;
+                  if (p.anchor) return null;
                   return (
                     <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-lg">
                       <div className="mb-1 font-medium text-text">
@@ -146,6 +178,7 @@ export function MetricChart({
               {/* min/max spread for the bucket */}
               <Area
                 dataKey="band"
+                type="monotone"
                 stroke="none"
                 fill={color}
                 fillOpacity={0.14}
@@ -155,10 +188,11 @@ export function MetricChart({
               {/* bucket average */}
               <Line
                 dataKey="avg"
+                type="monotone"
                 stroke={color}
                 strokeWidth={2}
-                dot={showDots ? { r: 2.5, fill: color } : false}
-                activeDot={{ r: 4 }}
+                dot={renderDot}
+                activeDot={renderActiveDot}
                 isAnimationActive={false}
                 connectNulls
               />
