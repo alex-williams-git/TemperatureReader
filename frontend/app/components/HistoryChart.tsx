@@ -17,6 +17,7 @@ import {
   isLive,
   LEVELS,
   pan,
+  ROOT_LEVEL,
   tzOffsetMinutes,
   type Frame,
 } from "@/lib/zoom";
@@ -25,10 +26,24 @@ import { useNow } from "@/lib/clientHooks";
 import { MetricChart, type ChartPoint } from "./MetricChart";
 
 export function HistoryChart({ unit }: { unit: Unit }) {
-  const [frames, setFrames] = useState<Frame[]>(() => [initialFrame()]);
-  const frame = frames[frames.length - 1];
+  // The drill/pan stack. Empty = the live view. Every entry here is a *frozen*
+  // window; only the live view (below) follows the clock.
+  const [frames, setFrames] = useState<Frame[]>([]);
+
+  // Recomputed each minute so the live window's `end` keeps up with "now"
+  // Otherwise, today's in-progress day-bucket never enters the query window until reload
+  const now = useNow(60_000);
+  const liveFrame = useMemo(() => initialFrame(now), [now]);
+
+  const frame = frames.length ? frames[frames.length - 1] : liveFrame;
   const level = LEVELS[frame.levelId];
   const canDrill = level.childId != null;
+
+  // Breadcrumb trail. While drilled in but not panned at the root, frames[0] is a child level and the true root is the live view, so we prepend
+  // root is explicit is true when the root week is a stored frame when panned
+  // Frames is the source of truth and collection of all drilled in frames. Crumbs is just a view of frames for rendering
+  const rootIsExplicit = frames.length > 0 && frames[0].levelId === ROOT_LEVEL;
+  const crumbs = rootIsExplicit ? frames : [liveFrame, ...frames];
 
   const startIso = new Date(frame.start).toISOString();
   const endIso = new Date(frame.end).toISOString();
@@ -42,8 +57,6 @@ export function HistoryChart({ unit }: { unit: Unit }) {
         bucket: level.bucket,
         tz_offset_minutes: tzOffsetMinutes(),
       })}`;
-
-  const now = useNow(30_000);
 
   const { data, error, isLoading } = useSWR<Reading[] | AggregateBucket[]>(
     key,
@@ -87,8 +100,14 @@ export function HistoryChart({ unit }: { unit: Unit }) {
     const child = drillInto(frame, t);
     if (child) setFrames((f) => [...f, child]);
   }
-  function jumpTo(index: number) {
-    setFrames((f) => f.slice(0, index + 1));
+  // i indexes crumbs, which may lead with the live root.
+  function jumpToCrumb(i: number) {
+    if (rootIsExplicit) setFrames((f) => f.slice(0, i + 1));
+    else if (i === 0) setFrames([]); // back to the week level view
+    else setFrames((f) => f.slice(0, i)); // crumbs[i] === frames[i - 1]
+  }
+  function popLevel() {
+    setFrames((f) => f.slice(0, -1));
   }
   function shift(direction: -1 | 1) {
     setFrames((f) => [...f.slice(0, -1), pan(frame, direction)]);
@@ -105,14 +124,14 @@ export function HistoryChart({ unit }: { unit: Unit }) {
 
         {/* breadcrumb */}
         <nav className="flex flex-wrap items-center gap-1 text-sm">
-          {frames.map((f, i) => {
-            const last = i === frames.length - 1;
+          {crumbs.map((f, i) => {
+            const last = i === crumbs.length - 1;
             return (
               <span key={i} className="flex items-center gap-1">
                 {i > 0 && <ChevronRight size={14} className="text-muted" />}
                 <button
                   type="button"
-                  onClick={() => jumpTo(i)}
+                  onClick={() => jumpToCrumb(i)}
                   disabled={last}
                   className={
                     last
@@ -137,14 +156,14 @@ export function HistoryChart({ unit }: { unit: Unit }) {
           <IconBtn label="Later" onClick={() => shift(1)} disabled={atNow}>
             <ChevronRight size={16} />
           </IconBtn>
-          {frames.length > 1 && (
-            <IconBtn label="Back out one level" onClick={() => jumpTo(frames.length - 2)}>
+          {crumbs.length > 1 && (
+            <IconBtn label="Back out one level" onClick={popLevel}>
               <ArrowLeft size={16} />
             </IconBtn>
           )}
           <IconBtn
             label="Reset to the last 7 days"
-            onClick={() => setFrames([initialFrame()])}
+            onClick={() => setFrames([])}
           >
             <RotateCcw size={16} />
           </IconBtn>
