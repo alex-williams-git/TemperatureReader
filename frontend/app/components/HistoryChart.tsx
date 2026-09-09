@@ -30,10 +30,8 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   // window; only the live view (below) follows the clock.
   const [frames, setFrames] = useState<Frame[]>([]);
 
-  // Recomputed each minute so the live window's `end` keeps up with "now" —
-  // otherwise today's in-progress day-bucket never enters the query window
-  // until a reload. `useNow` quantizes, so the SWR key only turns over once a
-  // minute, not on every render.
+  // Recomputed each minute so the live window's `end` keeps up with "now"
+  // Otherwise, today's in-progress day-bucket never enters the query window until reload
   const now = useNow(60_000);
   const liveFrame = useMemo(() => initialFrame(now), [now]);
 
@@ -41,8 +39,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const level = LEVELS[frame.levelId];
   const canDrill = level.childId != null;
 
-  // Breadcrumb trail. While drilled in but not panned at the root, frames[0] is
-  // a child level and the true root is the live view — prepend it.
+  // Breadcrumb trail. While drilled in but not panned at the root, frames[0] is a child level and the true root is the live view, so we prepend
   const rootIsExplicit = frames.length > 0 && frames[0].levelId === ROOT_LEVEL;
   const crumbs = rootIsExplicit ? frames : [liveFrame, ...frames];
 
@@ -101,7 +98,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
     const child = drillInto(frame, t);
     if (child) setFrames((f) => [...f, child]);
   }
-  // `i` indexes `crumbs`, which may lead with the synthetic live root.
+  // i indexes crumbs, which may lead with the live root.
   function jumpToCrumb(i: number) {
     if (rootIsExplicit) setFrames((f) => f.slice(0, i + 1));
     else if (i === 0) setFrames([]); // back to the live view
