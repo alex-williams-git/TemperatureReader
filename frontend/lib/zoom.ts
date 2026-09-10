@@ -87,10 +87,11 @@ export function pan(frame: Frame, direction: -1 | 1): Frame {
   return { ...frame, start: frame.start + direction * span, end: frame.end + direction * span };
 }
 
-/** Does this window run up against "now" (so it's worth auto-refreshing)?
- *  `now` of 0 (server snapshot) counts as "not live". */
+/** Does this window still contain "now" (so it's worth auto-refreshing)?
+ *  Panned-back / drilled-in windows that end in the past are frozen and don't
+ *  poll. `now` of 0 (server snapshot) counts as "not live". */
 export function isLive(frame: Frame, now: number): boolean {
-  return now > 0 && frame.end >= now - LEVELS[frame.levelId].spanMs;
+  return now > 0 && frame.end >= now;
 }
 
 /** JS getTimezoneOffset() is (UTC - local) in minutes; the API wants the sign
