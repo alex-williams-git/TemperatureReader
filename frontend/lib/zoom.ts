@@ -67,17 +67,23 @@ export function initialFrame(now: number = Date.now()): Frame {
   return { levelId: ROOT_LEVEL, start: end - LEVELS[ROOT_LEVEL].spanMs, end };
 }
 
-/** Click a bucket at `frame` → the child-level frame starting at that bucket. */
-export function drillInto(frame: Frame, clickedMs: number): Frame | null {
+/** Click a bucket at `frame` → the child-level frame starting at that bucket.
+ *  The clicked point may sit mid-bucket (a live window splices finer tail
+ *  points into the in-progress bucket — e.g. a 12:30 ten-min point on the day
+ *  view), so snap the new window's start to the child bucket's own edge,
+ *  aligned to the viewer's local clock like the backend's bucketing. */
+export function drillInto(frame: Frame, clickedMs: number, tzOffsetMin: number): Frame | null {
   const child = LEVELS[frame.levelId].childId;
   if (!child) return null;
   // Ignore clicks at/after the window's end — e.g. the synthetic trailing point
   // that stretches the last bucket to the edge.
   if (clickedMs >= frame.end) return null;
+  const span = LEVELS[child].spanMs;
+  const start = bucketStartMs(clickedMs, span, tzOffsetMin);
   return {
     levelId: child,
-    start: clickedMs,
-    end: clickedMs + LEVELS[child].spanMs,
+    start,
+    end: start + span,
   };
 }
 

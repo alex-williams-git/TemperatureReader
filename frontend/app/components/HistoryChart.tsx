@@ -163,7 +163,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const domain: [number, number] = [frame.start, frame.end];
 
   function drill(t: number) {
-    const child = drillInto(frame, t);
+    const child = drillInto(frame, t, tzOffsetMinutes());
     if (child) setFrames((f) => [...f, child]);
   }
   // i indexes crumbs, which may lead with the live root.
