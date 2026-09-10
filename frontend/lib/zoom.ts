@@ -14,7 +14,7 @@ export type BucketParam = "day" | "hour" | "ten_min" | "minute" | "raw";
 export interface Level {
   id: LevelId;
   label: string;
-  spanMs: number;
+  windowSpanMs: number;
   bucket: BucketParam;
   childId: LevelId | null;
 }
@@ -24,16 +24,17 @@ const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
 export const LEVELS: Record<LevelId, Level> = {
-  week: { id: "week", label: "Week", spanMs: 7 * DAY, bucket: "day", childId: "day" },
-  day: { id: "day", label: "Day", spanMs: DAY, bucket: "hour", childId: "hour" },
-  hour: { id: "hour", label: "Hour", spanMs: HOUR, bucket: "ten_min", childId: "ten_min" },
-  ten_min: { id: "ten_min", label: "10 min", spanMs: 10 * MIN, bucket: "raw", childId: null },
+  week: { id: "week", label: "Week", windowSpanMs: 7 * DAY, bucket: "day", childId: "day" },
+  day: { id: "day", label: "Day", windowSpanMs: DAY, bucket: "hour", childId: "hour" },
+  hour: { id: "hour", label: "Hour", windowSpanMs: HOUR, bucket: "ten_min", childId: "ten_min" },
+  ten_min: { id: "ten_min", label: "10 min", windowSpanMs: 10 * MIN, bucket: "raw", childId: null },
 };
 
-export interface Frame {
+export interface TimeWindow {
   levelId: LevelId;
   start: number; // epoch ms, inclusive
   end: number; // epoch ms, exclusive
+  live?: boolean; // true if this window is still live (end >= now)
 }
 
 export const ROOT_LEVEL: LevelId = "week";
@@ -50,36 +51,42 @@ export const TAIL_BUCKET: Record<LevelId, { param: BucketParam; ms: number } | n
 
 /** Left edge of the fixed-width bucket containing `atMs`, aligned to the
  *  viewer's local clock (matches the backend's tz-aware bucketing). */
-export function bucketStartMs(atMs: number, widthMs: number, tzOffsetMin: number): number {
+export function getBucketStartTimeInMs(atMs: number, widthMs: number, tzOffsetMin: number): number {
   const off = tzOffsetMin * 60_000;
   return Math.floor((atMs + off) / widthMs) * widthMs - off;
 }
 
-/** How far past "now" the live week window reaches. Keeps the current day one
- *  bucket in from the right edge instead of jammed against it, leaving visible
- *  headroom for the day still in progress. */
-export const LIVE_LEAD_MS = DAY;
+// In the past version, only the initial week view window was defined. The following function
+// is an implementation of live windows at different levels, which will be used to create a
+// live view of the data based on the current time and timezone offset.
+export function getLiveWindow(levelId: LevelId, now: number, timezoneOffsetMin: number): TimeWindow {
+  const curLevel = LEVELS[levelId];
 
-/** Opening view: a 7-day window that leads "now" by {@link LIVE_LEAD_MS}, so it
- *  spans the last 6 days plus today, with an empty day of headroom on the right. */
-export function initialFrame(now: number = Date.now()): Frame {
-  const end = now + LIVE_LEAD_MS;
-  return { levelId: ROOT_LEVEL, start: end - LEVELS[ROOT_LEVEL].spanMs, end };
+  // Root: window spans many buckets with no natural anchor, so we have to handle differently
+  if (levelId === ROOT_LEVEL) {
+    const edgeMs = LEVELS[curLevel.childId!].windowSpanMs; // 1 DAY
+    const end = getBucketStartTimeInMs(now, edgeMs, timezoneOffsetMin) + edgeMs;
+    return { levelId, start: end - curLevel.windowSpanMs, end };
+  }
+
+  // Deeper levels: the window *is* one clock block — snap to it, flip at its edge.
+  const start = getBucketStartTimeInMs(now, curLevel.windowSpanMs, timezoneOffsetMin);
+  return { levelId, start, end: start + curLevel.windowSpanMs };
 }
 
-/** Click a bucket at `frame` → the child-level frame starting at that bucket.
+/** Click a bucket in `curWindow` → the child-level window starting at that bucket.
  *  The clicked point may sit mid-bucket (a live window splices finer tail
  *  points into the in-progress bucket — e.g. a 12:30 ten-min point on the day
  *  view), so snap the new window's start to the child bucket's own edge,
  *  aligned to the viewer's local clock like the backend's bucketing. */
-export function drillInto(frame: Frame, clickedMs: number, tzOffsetMin: number): Frame | null {
-  const child = LEVELS[frame.levelId].childId;
+export function drillInto(curWindow: TimeWindow, clickedMs: number, tzOffsetMin: number): TimeWindow | null {
+  const child = LEVELS[curWindow.levelId].childId;
   if (!child) return null;
   // Ignore clicks at/after the window's end — e.g. the synthetic trailing point
   // that stretches the last bucket to the edge.
-  if (clickedMs >= frame.end) return null;
-  const span = LEVELS[child].spanMs;
-  const start = bucketStartMs(clickedMs, span, tzOffsetMin);
+  if (clickedMs >= curWindow.end) return null;
+  const span = LEVELS[child].windowSpanMs;
+  const start = getBucketStartTimeInMs(clickedMs, span, tzOffsetMin);
   return {
     levelId: child,
     start,
@@ -88,16 +95,20 @@ export function drillInto(frame: Frame, clickedMs: number, tzOffsetMin: number):
 }
 
 /** Shift the window one full span earlier / later at the same level. */
-export function pan(frame: Frame, direction: -1 | 1): Frame {
-  const span = LEVELS[frame.levelId].spanMs;
-  return { ...frame, start: frame.start + direction * span, end: frame.end + direction * span };
+export function pan(curWindow: TimeWindow, direction: -1 | 1): TimeWindow {
+  const span = LEVELS[curWindow.levelId].windowSpanMs;
+  return {
+    ...curWindow,
+    start: curWindow.start + direction * span,
+    end: curWindow.end + direction * span,
+  };
 }
 
 /** Does this window still contain "now" (so it's worth auto-refreshing)?
  *  Panned-back / drilled-in windows that end in the past are frozen and don't
  *  poll. `now` of 0 (server snapshot) counts as "not live". */
-export function isLive(frame: Frame, now: number): boolean {
-  return now > 0 && frame.end >= now;
+export function isLive(curWindow: TimeWindow, now: number): boolean {
+  return now > 0 && curWindow.end > now;
 }
 
 /** JS getTimezoneOffset() is (UTC - local) in minutes; the API wants the sign

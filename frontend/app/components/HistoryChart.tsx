@@ -12,16 +12,16 @@ import {
 } from "lucide-react";
 import { fetcher, qs, type AggregateBucket, type Reading } from "@/lib/api";
 import {
-  bucketStartMs,
+  getBucketStartTimeInMs,
   drillInto,
-  initialFrame,
+  getLiveWindow,
   isLive,
   LEVELS,
   pan,
   ROOT_LEVEL,
   TAIL_BUCKET,
   tzOffsetMinutes,
-  type Frame,
+  type TimeWindow,
 } from "@/lib/zoom";
 import { crumbLabel, pickTemp, unitSymbol, type Unit } from "@/lib/format";
 import { useNow } from "@/lib/clientHooks";
@@ -45,31 +45,38 @@ function bucketToPoints(b: AggregateBucket, unit: Unit) {
 }
 
 export function HistoryChart({ unit }: { unit: Unit }) {
-  // The drill/pan stack. Empty = the live view. Every entry here is a *frozen*
-  // window; only the live view (below) follows the clock.
-  const [frames, setFrames] = useState<Frame[]>([]);
+  // The drill/pan stack. Empty = the live view.
+  // Entries are frozen windows unless live, in which case they re-resolve against the clock each tick.
+  const [windows, setWindows] = useState<TimeWindow[]>([]);
 
-  // Recomputed each minute so the live window's `end` keeps up with "now"
-  // Otherwise, today's in-progress day-bucket never enters the query window until reload
+  // Recomputed each minute so the live window's "end" keeps up with "now"
+  // Base window is always at the week level
   const now = useNow(60_000);
-  const liveFrame = useMemo(() => initialFrame(now), [now]);
+  const rootWindow = useMemo(() => getLiveWindow(ROOT_LEVEL, now, tzOffsetMinutes()), [now]);
 
-  const frame = frames.length ? frames[frames.length - 1] : liveFrame;
-  const level = LEVELS[frame.levelId];
+  // Top window is the window currently being viewed
+  const topWindow = windows.length ? windows[windows.length - 1] : null;
+  const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.levelId, now, tzOffsetMinutes()) : null; // a live top window re-resolves against the clock each tick
+  const curWindow = liveTopWindow ?? topWindow ?? rootWindow;
+
+  const level = LEVELS[curWindow.levelId];
   const canDrill = level.childId != null;
 
-  // Breadcrumb trail. While drilled in but not panned at the root, frames[0] is a child level and the true root is the live view, so we prepend
-  // root is explicit is true when the root week is a stored frame when panned
-  // Frames is the source of truth and collection of all drilled in frames. Crumbs is just a view of frames for rendering
-  const rootIsExplicit = frames.length > 0 && frames[0].levelId === ROOT_LEVEL;
-  const crumbs = rootIsExplicit ? frames : [liveFrame, ...frames];
+  // Breadcrumb trail. While drilled in but not panned at the root, windows[0] is a child level and the true root is the live view, so we prepend
+  // rootIsExplicit tells us if the bottom of the stack is already a week window. If not, we need to append after the root window
+  const rootIsExplicit = windows.length > 0 && windows[0].levelId === ROOT_LEVEL;
+  const baseCrumbs = rootIsExplicit ? windows : [rootWindow, ...windows];
+  // Swap the last crumb for its clock-resolved window so its label isn't stale.
+  const crumbs = liveTopWindow
+    ? baseCrumbs.map((c, i) => (i === baseCrumbs.length - 1 ? liveTopWindow : c))
+    : baseCrumbs;
 
-  const startIso = new Date(frame.start).toISOString();
-  const endIso = new Date(frame.end).toISOString();
+  const startIso = new Date(curWindow.start).toISOString();
+  const endIso = new Date(curWindow.end).toISOString();
   const raw = level.bucket === "raw";
   // Width of one aggregate bucket (a level's child span == its bucket size);
   // 0 at the raw level. Used to stretch the last bucket to the window edge.
-  const bucketMs = level.childId ? LEVELS[level.childId].spanMs : 0;
+  const bucketMs = level.childId ? LEVELS[level.childId].windowSpanMs : 0;
 
   const key = raw
     ? `/readings/range${qs({ start: startIso, end: endIso, limit: 5000 })}`
@@ -83,18 +90,18 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const { data, error, isLoading } = useSWR<Reading[] | AggregateBucket[]>(
     key,
     fetcher,
-    { refreshInterval: isLive(frame, now) ? 20_000 : 0, keepPreviousData: true },
+    { refreshInterval: isLive(curWindow, now) ? 20_000 : 0, keepPreviousData: true },
   );
 
   // If the window still contains "now", its newest top-level bucket is only
   // half-full. Re-query just that bucket at a finer size and splice it in, so
   // the current period shows live movement instead of one flat slab.
-  const tail = TAIL_BUCKET[frame.levelId];
+  const tail = TAIL_BUCKET[curWindow.levelId];
   const curBucketStart =
-    !raw && tail && frame.start <= now && now <= frame.end
-      ? bucketStartMs(now, bucketMs, tzOffsetMinutes())
+    !raw && tail && curWindow.start <= now && now <= curWindow.end
+      ? getBucketStartTimeInMs(now, bucketMs, tzOffsetMinutes())
       : 0;
-  const wantTail = curBucketStart >= frame.start && curBucketStart > 0;
+  const wantTail = curBucketStart >= curWindow.start && curBucketStart > 0;
 
   const { data: tailData } = useSWR<AggregateBucket[]>(
     wantTail
@@ -160,26 +167,27 @@ export function HistoryChart({ unit }: { unit: Unit }) {
     return { tempPoints: temp, humPoints: hum };
   }, [data, tailData, raw, bucketMs, wantTail, curBucketStart, now, unit]);
 
-  const domain: [number, number] = [frame.start, frame.end];
+  const domain: [number, number] = [curWindow.start, curWindow.end];
 
   function drill(t: number) {
-    const child = drillInto(frame, t, tzOffsetMinutes());
-    if (child) setFrames((f) => [...f, child]);
+    const child = drillInto(curWindow, t, tzOffsetMinutes());
+    if (child) setWindows((w) => [...w, { ...child, live: isLive(child, now) }]);
   }
   // i indexes crumbs, which may lead with the live root.
   function jumpToCrumb(i: number) {
-    if (rootIsExplicit) setFrames((f) => f.slice(0, i + 1));
-    else if (i === 0) setFrames([]); // back to the week level view
-    else setFrames((f) => f.slice(0, i)); // crumbs[i] === frames[i - 1]
+    if (rootIsExplicit) setWindows((w) => w.slice(0, i + 1));
+    else if (i === 0) setWindows([]); // back to the week level view
+    else setWindows((w) => w.slice(0, i)); // crumbs[i] === windows[i - 1]
   }
   function popLevel() {
-    setFrames((f) => f.slice(0, -1));
+    setWindows((w) => w.slice(0, -1));
   }
   function shift(direction: -1 | 1) {
-    setFrames((f) => [...f.slice(0, -1), pan(frame, direction)]);
+    const nextWindow = pan(curWindow, direction);
+    setWindows((w) => [...w.slice(0, -1), { ...nextWindow, live: isLive(nextWindow, now) }]);
   }
 
-  const atNow = frame.end >= now;
+  const atNow = curWindow.end >= now;
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
@@ -190,7 +198,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
 
         {/* breadcrumb */}
         <nav className="flex flex-wrap items-center gap-1 text-sm">
-          {crumbs.map((f, i) => {
+          {crumbs.map((w, i) => {
             const last = i === crumbs.length - 1;
             return (
               <span key={i} className="flex items-center gap-1">
@@ -205,9 +213,9 @@ export function HistoryChart({ unit }: { unit: Unit }) {
                       : "rounded-md px-2 py-0.5 text-muted hover:text-primary"
                   }
                 >
-                  {LEVELS[f.levelId].label}
+                  {LEVELS[w.levelId].label}
                   <span className="ml-1.5 hidden text-xs opacity-70 sm:inline">
-                    {crumbLabel(f.levelId, f.start)}
+                    {crumbLabel(w.levelId, w.start)}
                   </span>
                 </button>
               </span>
@@ -229,7 +237,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
           )}
           <IconBtn
             label="Reset to the last 7 days"
-            onClick={() => setFrames([])}
+            onClick={() => setWindows([])}
           >
             <RotateCcw size={16} />
           </IconBtn>
@@ -247,7 +255,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
             icon={<Thermometer size={16} className="text-temp" />}
             data={tempPoints}
             domain={domain}
-            levelId={frame.levelId}
+            levelId={curWindow.levelId}
             color="var(--temp)"
             unitSuffix={unitSymbol(unit)}
             digits={1}
@@ -260,7 +268,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
             icon={<Droplets size={16} className="text-humidity" />}
             data={humPoints}
             domain={domain}
-            levelId={frame.levelId}
+            levelId={curWindow.levelId}
             color="var(--humidity)"
             unitSuffix="%"
             digits={0}

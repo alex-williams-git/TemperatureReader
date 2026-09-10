@@ -52,7 +52,7 @@ export function fullStamp(t: number, withSeconds = false): string {
   })}`;
 }
 
-/** Breadcrumb label for a frame's starting instant. */
+/** Breadcrumb label for a window's starting instant. */
 export function crumbLabel(levelId: LevelId, start: number): string {
   switch (levelId) {
     case "week":
