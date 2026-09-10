@@ -16,9 +16,9 @@ import {
   drillInto,
   getLiveWindow,
   isLive,
-  LEVELS,
+  WINDOW_LEVELS,
   pan,
-  ROOT_LEVEL,
+  ROOT_WINDOW_LEVEL,
   TAIL_BUCKET,
   tzOffsetMinutes,
   type TimeWindow,
@@ -50,21 +50,21 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const [windows, setWindows] = useState<TimeWindow[]>([]);
 
   // Recomputed each minute so the live window's "end" keeps up with "now"
-  // Base window is always at the week level
+  // Base window is always at the week window level
   const now = useNow(60_000);
-  const rootWindow = useMemo(() => getLiveWindow(ROOT_LEVEL, now, tzOffsetMinutes()), [now]);
+  const rootWindow = useMemo(() => getLiveWindow(ROOT_WINDOW_LEVEL, now, tzOffsetMinutes()), [now]);
 
   // Top window is the window currently being viewed
   const topWindow = windows.length ? windows[windows.length - 1] : null;
-  const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.levelId, now, tzOffsetMinutes()) : null; // a live top window re-resolves against the clock each tick
+  const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.windowLevelId, now, tzOffsetMinutes()) : null; // a live top window re-resolves against the clock each tick
   const curWindow = liveTopWindow ?? topWindow ?? rootWindow;
 
-  const level = LEVELS[curWindow.levelId];
-  const canDrill = level.childId != null;
+  const windowLevel = WINDOW_LEVELS[curWindow.windowLevelId];
+  const canDrill = windowLevel.childId != null;
 
-  // Breadcrumb trail. While drilled in but not panned at the root, windows[0] is a child level and the true root is the live view, so we prepend
+  // Breadcrumb trail. While drilled in but not panned at the root, windows[0] is a child window level and the true root is the live view, so we prepend
   // rootIsExplicit tells us if the bottom of the stack is already a week window. If not, we need to append after the root window
-  const rootIsExplicit = windows.length > 0 && windows[0].levelId === ROOT_LEVEL;
+  const rootIsExplicit = windows.length > 0 && windows[0].windowLevelId === ROOT_WINDOW_LEVEL;
   const baseCrumbs = rootIsExplicit ? windows : [rootWindow, ...windows];
   // Swap the last crumb for its clock-resolved window so its label isn't stale.
   const crumbs = liveTopWindow
@@ -73,17 +73,17 @@ export function HistoryChart({ unit }: { unit: Unit }) {
 
   const startIso = new Date(curWindow.start).toISOString();
   const endIso = new Date(curWindow.end).toISOString();
-  const raw = level.bucket === "raw";
-  // Width of one aggregate bucket (a level's child span == its bucket size);
-  // 0 at the raw level. Used to stretch the last bucket to the window edge.
-  const bucketMs = level.childId ? LEVELS[level.childId].windowSpanMs : 0;
+  const raw = windowLevel.bucket === "raw";
+  // Width of one aggregate bucket (a window level's child span == its bucket size);
+  // 0 at the raw window level. Used to stretch the last bucket to the window edge.
+  const bucketMs = windowLevel.childId ? WINDOW_LEVELS[windowLevel.childId].windowSpanMs : 0;
 
   const key = raw
     ? `/readings/range${qs({ start: startIso, end: endIso, limit: 5000 })}`
     : `/readings/aggregate${qs({
         start: startIso,
         end: endIso,
-        bucket: level.bucket,
+        bucket: windowLevel.bucket,
         tz_offset_minutes: tzOffsetMinutes(),
       })}`;
 
@@ -96,7 +96,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   // If the window still contains "now", its newest top-level bucket is only
   // half-full. Re-query just that bucket at a finer size and splice it in, so
   // the current period shows live movement instead of one flat slab.
-  const tail = TAIL_BUCKET[curWindow.levelId];
+  const tail = TAIL_BUCKET[curWindow.windowLevelId];
   const curBucketStart =
     !raw && tail && curWindow.start <= now && now <= curWindow.end
       ? getBucketStartTimeInMs(now, bucketMs, tzOffsetMinutes())
@@ -176,10 +176,10 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   // i indexes crumbs, which may lead with the live root.
   function jumpToCrumb(i: number) {
     if (rootIsExplicit) setWindows((w) => w.slice(0, i + 1));
-    else if (i === 0) setWindows([]); // back to the week level view
+    else if (i === 0) setWindows([]); // back to the week window level view
     else setWindows((w) => w.slice(0, i)); // crumbs[i] === windows[i - 1]
   }
-  function popLevel() {
+  function popWindowLevel() {
     setWindows((w) => w.slice(0, -1));
   }
   function shift(direction: -1 | 1) {
@@ -213,9 +213,9 @@ export function HistoryChart({ unit }: { unit: Unit }) {
                       : "rounded-md px-2 py-0.5 text-muted hover:text-primary"
                   }
                 >
-                  {LEVELS[w.levelId].label}
+                  {WINDOW_LEVELS[w.windowLevelId].label}
                   <span className="ml-1.5 hidden text-xs opacity-70 sm:inline">
-                    {crumbLabel(w.levelId, w.start)}
+                    {crumbLabel(w.windowLevelId, w.start)}
                   </span>
                 </button>
               </span>
@@ -231,7 +231,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
             <ChevronRight size={16} />
           </IconBtn>
           {crumbs.length > 1 && (
-            <IconBtn label="Back out one level" onClick={popLevel}>
+            <IconBtn label="Back out one level" onClick={popWindowLevel}>
               <ArrowLeft size={16} />
             </IconBtn>
           )}
@@ -255,7 +255,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
             icon={<Thermometer size={16} className="text-temp" />}
             data={tempPoints}
             domain={domain}
-            levelId={curWindow.levelId}
+            windowLevelId={curWindow.windowLevelId}
             color="var(--temp)"
             unitSuffix={unitSymbol(unit)}
             digits={1}
@@ -268,7 +268,7 @@ export function HistoryChart({ unit }: { unit: Unit }) {
             icon={<Droplets size={16} className="text-humidity" />}
             data={humPoints}
             domain={domain}
-            levelId={curWindow.levelId}
+            windowLevelId={curWindow.windowLevelId}
             color="var(--humidity)"
             unitSuffix="%"
             digits={0}
