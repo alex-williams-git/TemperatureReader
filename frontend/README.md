@@ -24,7 +24,7 @@ sets `BACKEND_ORIGIN=http://backend:8000` before `next build`.
 | Live card | `app/components/LiveReading.tsx` | SWR polls `/readings/latest` every 5s, `/health` every 10s. |
 | History | `app/components/HistoryChart.tsx` | A stack of zoom "frames". Clicking a bucket pushes a child frame; a breadcrumb + Back/Reset pop it. |
 | Chart panel | `app/components/MetricChart.tsx` | One Recharts `ComposedChart`: avg line + shaded min/max `Area`. Reused for temp and humidity. |
-| Zoom model | `lib/zoom.ts` | Level defs, window math, drill/pan, tz offset. |
+| Zoom model | `lib/zoom.ts` | `WINDOW_LEVELS` defs, window math, drill/pan, tz offset. |
 | API types + fetcher | `lib/api.ts` | |
 
 ## Zoom levels

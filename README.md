@@ -30,6 +30,35 @@ v1 scope is **sensing + logging/dashboard only** — no active fan control yet.
 | [`backend/`](backend/) | FastAPI service — serial reader, SQLite, REST API ([README](backend/README.md)) |
 | [`frontend/`](frontend/) | Next.js dashboard — live values + drill-down charts |
 
+## Terminology
+
+The history chart is a drill-down zoom stack. These terms describe how it's built
+(see [`frontend/lib/zoom.ts`](frontend/lib/zoom.ts)):
+
+- **Window** — a span of time. Visually, it's the range of time currently shown
+  on the chart you're looking at.
+
+- **Window level** — the tier a window belongs to, one of `week`, `day`, `hour`,
+  or `10-min`. The level fixes how long its window is and how its readings are
+  grouped. Drilling in moves down one level (`week → day → hour → 10-min`);
+  backing out moves up.
+
+- **Window span** — the length of time a window level covers: `week` = 7 days,
+  `day` = 24 hours, `hour` = 60 minutes, `10-min` = 10 minutes. Every window at a
+  given level is exactly one window span wide.
+
+- **Bucket** — a group of readings within a window, reduced to their aggregate
+  over the bucket's period: the average, plus the min/max variance. Visually,
+  one bucket is one plotted point (with the shaded band showing its min–max
+  spread). At the deepest level there are no buckets — the chart plots raw
+  readings directly.
+
+- **Bucket period** — how much time one bucket covers. It's the **child level's
+  window span**: on the `week` level buckets are 1 day wide (the `day` span), on
+  the `day` level they're 1 hour wide (the `hour` span), and so on. So drilling
+  into a bucket makes that bucket's period the whole window of the next level
+  down.
+
 ## Quick start
 
 ### 1. Flash the Arduino

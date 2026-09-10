@@ -1,29 +1,29 @@
-// The four zoom levels. Each level defines how wide the visible window is and
-// which server-side bucket size fills it. Drilling in clicks a bucket and makes
-// it the whole window of the next level down.
+// The four zoom window levels. Each window level defines how wide the visible
+// window is and which server-side bucket size fills it. Drilling in clicks a
+// bucket and makes it the whole window of the next window level down.
 //
 //   week  →  7 days of  1-day  buckets   (7 points)
 //   day   →  24 h of     1-hour buckets   (24 points)
 //   hour  →  60 min of  10-min  buckets   (6 points)
 //   10min →  10 min of  raw readings      (~60 points)
 
-export type LevelId = "week" | "day" | "hour" | "ten_min";
+export type WindowLevelId = "week" | "day" | "hour" | "ten_min";
 
 export type BucketParam = "day" | "hour" | "ten_min" | "minute" | "raw";
 
-export interface Level {
-  id: LevelId;
+export interface WindowLevel {
+  id: WindowLevelId;
   label: string;
   windowSpanMs: number;
   bucket: BucketParam;
-  childId: LevelId | null;
+  childId: WindowLevelId | null;
 }
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-export const LEVELS: Record<LevelId, Level> = {
+export const WINDOW_LEVELS: Record<WindowLevelId, WindowLevel> = {
   week: { id: "week", label: "Week", windowSpanMs: 7 * DAY, bucket: "day", childId: "day" },
   day: { id: "day", label: "Day", windowSpanMs: DAY, bucket: "hour", childId: "hour" },
   hour: { id: "hour", label: "Hour", windowSpanMs: HOUR, bucket: "ten_min", childId: "ten_min" },
@@ -31,18 +31,18 @@ export const LEVELS: Record<LevelId, Level> = {
 };
 
 export interface TimeWindow {
-  levelId: LevelId;
+  windowLevelId: WindowLevelId;
   start: number; // epoch ms, inclusive
   end: number; // epoch ms, exclusive
   live?: boolean; // true if this window is still live (end >= now)
 }
 
-export const ROOT_LEVEL: LevelId = "week";
+export const ROOT_WINDOW_LEVEL: WindowLevelId = "week";
 
 /** When a live window's newest bucket is still filling, re-query just that
  *  bucket at this finer size so the current period shows sub-bucket movement
- *  instead of one flat point. `null` at the raw level (nothing finer). */
-export const TAIL_BUCKET: Record<LevelId, { param: BucketParam; ms: number } | null> = {
+ *  instead of one flat point. `null` at the raw window level (nothing finer). */
+export const TAIL_BUCKET: Record<WindowLevelId, { param: BucketParam; ms: number } | null> = {
   week: { param: "hour", ms: HOUR },
   day: { param: "ten_min", ms: 10 * MIN },
   hour: { param: "minute", ms: MIN },
@@ -57,46 +57,46 @@ export function getBucketStartTimeInMs(atMs: number, widthMs: number, tzOffsetMi
 }
 
 // In the past version, only the initial week view window was defined. The following function
-// is an implementation of live windows at different levels, which will be used to create a
+// is an implementation of live windows at different window levels, which will be used to create a
 // live view of the data based on the current time and timezone offset.
-export function getLiveWindow(levelId: LevelId, now: number, timezoneOffsetMin: number): TimeWindow {
-  const curLevel = LEVELS[levelId];
+export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezoneOffsetMin: number): TimeWindow {
+  const curWindowLevel = WINDOW_LEVELS[windowLevelId];
 
   // Root: window spans many buckets with no natural anchor, so we have to handle differently
-  if (levelId === ROOT_LEVEL) {
-    const edgeMs = LEVELS[curLevel.childId!].windowSpanMs; // 1 DAY
+  if (windowLevelId === ROOT_WINDOW_LEVEL) {
+    const edgeMs = WINDOW_LEVELS[curWindowLevel.childId!].windowSpanMs; // 1 DAY
     const end = getBucketStartTimeInMs(now, edgeMs, timezoneOffsetMin) + edgeMs;
-    return { levelId, start: end - curLevel.windowSpanMs, end };
+    return { windowLevelId, start: end - curWindowLevel.windowSpanMs, end };
   }
 
-  // Deeper levels: the window *is* one clock block — snap to it, flip at its edge.
-  const start = getBucketStartTimeInMs(now, curLevel.windowSpanMs, timezoneOffsetMin);
-  return { levelId, start, end: start + curLevel.windowSpanMs };
+  // Deeper window levels: the window *is* one clock block — snap to it, flip at its edge.
+  const start = getBucketStartTimeInMs(now, curWindowLevel.windowSpanMs, timezoneOffsetMin);
+  return { windowLevelId, start, end: start + curWindowLevel.windowSpanMs };
 }
 
-/** Click a bucket in `curWindow` → the child-level window starting at that bucket.
- *  The clicked point may sit mid-bucket (a live window splices finer tail
+/** Click a bucket in `curWindow` → the child-window-level window starting at that
+ *  bucket. The clicked point may sit mid-bucket (a live window splices finer tail
  *  points into the in-progress bucket — e.g. a 12:30 ten-min point on the day
  *  view), so snap the new window's start to the child bucket's own edge,
  *  aligned to the viewer's local clock like the backend's bucketing. */
 export function drillInto(curWindow: TimeWindow, clickedMs: number, tzOffsetMin: number): TimeWindow | null {
-  const child = LEVELS[curWindow.levelId].childId;
+  const child = WINDOW_LEVELS[curWindow.windowLevelId].childId;
   if (!child) return null;
   // Ignore clicks at/after the window's end — e.g. the synthetic trailing point
   // that stretches the last bucket to the edge.
   if (clickedMs >= curWindow.end) return null;
-  const span = LEVELS[child].windowSpanMs;
+  const span = WINDOW_LEVELS[child].windowSpanMs;
   const start = getBucketStartTimeInMs(clickedMs, span, tzOffsetMin);
   return {
-    levelId: child,
+    windowLevelId: child,
     start,
     end: start + span,
   };
 }
 
-/** Shift the window one full span earlier / later at the same level. */
+/** Shift the window one full span earlier / later at the same window level. */
 export function pan(curWindow: TimeWindow, direction: -1 | 1): TimeWindow {
-  const span = LEVELS[curWindow.levelId].windowSpanMs;
+  const span = WINDOW_LEVELS[curWindow.windowLevelId].windowSpanMs;
   return {
     ...curWindow,
     start: curWindow.start + direction * span,

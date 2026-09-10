@@ -1,4 +1,4 @@
-import type { LevelId } from "./zoom";
+import type { WindowLevelId } from "./zoom";
 
 export type Unit = "c" | "f";
 
@@ -30,9 +30,9 @@ const time = (t: number) =>
 const dayShort = (t: number) =>
   new Date(t).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 
-/** X-axis tick label, tuned per zoom level. */
-export function axisTick(t: number, level: LevelId): string {
-  switch (level) {
+/** X-axis tick label, tuned per zoom window level. */
+export function axisTick(t: number, windowLevel: WindowLevelId): string {
+  switch (windowLevel) {
     case "week":
       return new Date(t).toLocaleDateString([], { weekday: "short", day: "numeric" });
     case "day":
@@ -53,8 +53,8 @@ export function fullStamp(t: number, withSeconds = false): string {
 }
 
 /** Breadcrumb label for a window's starting instant. */
-export function crumbLabel(levelId: LevelId, start: number): string {
-  switch (levelId) {
+export function crumbLabel(windowLevelId: WindowLevelId, start: number): string {
+  switch (windowLevelId) {
     case "week":
       return "Past 7 days";
     case "day":

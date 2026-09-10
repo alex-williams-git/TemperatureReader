@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { axisTick, fullStamp } from "@/lib/format";
-import type { LevelId } from "@/lib/zoom";
+import type { WindowLevelId } from "@/lib/zoom";
 
 export interface ChartPoint {
   t: number; // epoch ms (bucket start, or reading time at raw level)
@@ -27,7 +27,7 @@ interface Props {
   icon: React.ReactNode;
   data: ChartPoint[];
   domain: [number, number];
-  levelId: LevelId;
+  windowLevelId: WindowLevelId;
   color: string; // CSS var reference, e.g. "var(--temp)"
   unitSuffix: string; // "°C" | "%"
   digits: number;
@@ -41,7 +41,7 @@ export function MetricChart({
   icon,
   data,
   domain,
-  levelId,
+  windowLevelId,
   color,
   unitSuffix,
   digits,
@@ -126,7 +126,7 @@ export function MetricChart({
                 ticks={ticks}
                 interval={0}
                 allowDataOverflow
-                tickFormatter={(t) => axisTick(Number(t), levelId)}
+                tickFormatter={(t) => axisTick(Number(t), windowLevelId)}
                 tick={{ fill: "var(--muted)", fontSize: 11 }}
                 stroke="var(--border)"
                 minTickGap={8}
@@ -149,7 +149,7 @@ export function MetricChart({
                   return (
                     <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-lg">
                       <div className="mb-1 font-medium text-text">
-                        {fullStamp(p.t, levelId === "ten_min")}
+                        {fullStamp(p.t, windowLevelId === "ten_min")}
                       </div>
                       <div className="text-muted">
                         avg{" "}
