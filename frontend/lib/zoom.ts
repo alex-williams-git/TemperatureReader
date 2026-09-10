@@ -55,9 +55,16 @@ export function bucketStartMs(atMs: number, widthMs: number, tzOffsetMin: number
   return Math.floor((atMs + off) / widthMs) * widthMs - off;
 }
 
-/** Opening view: the last week, ending now. */
+/** How far past "now" the live week window reaches. Keeps the current day one
+ *  bucket in from the right edge instead of jammed against it, leaving visible
+ *  headroom for the day still in progress. */
+export const LIVE_LEAD_MS = DAY;
+
+/** Opening view: a 7-day window that leads "now" by {@link LIVE_LEAD_MS}, so it
+ *  spans the last 6 days plus today, with an empty day of headroom on the right. */
 export function initialFrame(now: number = Date.now()): Frame {
-  return { levelId: ROOT_LEVEL, start: now - LEVELS[ROOT_LEVEL].spanMs, end: now };
+  const end = now + LIVE_LEAD_MS;
+  return { levelId: ROOT_LEVEL, start: end - LEVELS[ROOT_LEVEL].spanMs, end };
 }
 
 /** Click a bucket at `frame` → the child-level frame starting at that bucket. */
