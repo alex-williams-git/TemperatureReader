@@ -88,7 +88,7 @@ export function MetricChart({
   }, [domain]);
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-surface-2/60 p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted">
         {icon}
         {title}

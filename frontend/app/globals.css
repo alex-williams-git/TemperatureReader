@@ -84,3 +84,152 @@ body {
 .recharts-surface {
   overflow: visible;
 }
+
+/* ---- Panels ------------------------------------------------------------
+   One card treatment, shared by the live card, the history section and each
+   chart: a gradient hairline (drawn with two backgrounds — surface via
+   padding-box, the gradient via border-box), a soft drop shadow, and a faint
+   top sheen (::before) so the dashboard reads as layered rather than flat. */
+.panel {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(160deg, color-mix(in oklab, var(--primary) 35%, var(--border)), var(--border) 55%)
+      border-box;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -16px rgb(15 23 42 / 0.25);
+}
+
+.dark .panel {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -18px rgb(0 0 0 / 0.6);
+}
+
+/* A faint sheen along the top edge — catches the eye without a hard line. */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40%;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--primary) 6%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ---- Ambient background ---------------------------------------------------
+   Layers behind the whole app: a temperature-tinted wash and a set of slow
+   drifting "mist" blobs whose presence tracks humidity. Colours/opacity are
+   driven by CSS vars set from the latest reading (see AmbientBackground.tsx);
+   the long transitions make the room feel like it's warming/cooling, not
+   snapping between states. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  /* --warmth: 0 (cool) … 1 (warm); --mist: 0 … 1 */
+  --warmth: 0;
+  --mist: 0;
+}
+
+.ambient__wash {
+  position: absolute;
+  inset: -20%;
+  background:
+    /* whole-page temperature tint: cool blue when cold, amber when warm */
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--humidity) calc((1 - var(--warmth)) * 16%), transparent),
+      color-mix(in oklab, var(--temp) calc(var(--warmth) * 20%), transparent)
+    ),
+    radial-gradient(
+      55% 50% at 14% 8%,
+      color-mix(in oklab, var(--humidity) 42%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      55% 50% at 90% 2%,
+      color-mix(in oklab, var(--temp) calc(10% + var(--warmth) * 40%), transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      65% 55% at 78% 100%,
+      color-mix(in oklab, var(--temp) calc(8% + var(--warmth) * 28%), transparent),
+      transparent 72%
+    );
+  opacity: 0.9;
+  transition: background 2.4s ease, opacity 2.4s ease;
+}
+
+.dark .ambient__wash {
+  opacity: 0.65;
+}
+
+.ambient__mist {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: calc(0.06 + var(--mist) * 0.6);
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--humidity) 60%, var(--surface)),
+    transparent 68%
+  );
+  transition: opacity 2.4s ease;
+}
+
+.ambient__mist--a {
+  width: 46vw;
+  height: 46vw;
+  left: -8vw;
+  top: 8vh;
+  animation: mist-drift-a 46s ease-in-out infinite alternate;
+}
+.ambient__mist--b {
+  width: 38vw;
+  height: 38vw;
+  right: -6vw;
+  top: 24vh;
+  animation: mist-drift-b 61s ease-in-out infinite alternate;
+}
+.ambient__mist--c {
+  width: 52vw;
+  height: 52vw;
+  left: 24vw;
+  bottom: -18vh;
+  animation: mist-drift-c 74s ease-in-out infinite alternate;
+}
+
+@keyframes mist-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6vw, 5vh, 0) scale(1.12); }
+}
+@keyframes mist-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to   { transform: translate3d(-7vw, 8vh, 0) scale(0.95); }
+}
+@keyframes mist-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-4vw, -6vh, 0) scale(1.15); }
+}
+
+/* A calmer replacement for the ConnectionBadge ping: a soft breathing glow. */
+@keyframes badge-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent); }
+  50%      { box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 0%, transparent); }
+}
+.badge-breathe {
+  animation: badge-breathe 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient__mist--a,
+  .ambient__mist--b,
+  .ambient__mist--c { animation: none; }
+  .badge-breathe { animation: none; }
+}

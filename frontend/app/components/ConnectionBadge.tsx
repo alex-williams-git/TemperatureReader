@@ -34,21 +34,20 @@ export function ConnectionBadge({
     }
   }
 
+  const live = label === "Sensor live";
+
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium ${tone}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface/70 px-2.5 py-1.5 text-xs font-medium backdrop-blur ${tone}`}
       title={
         health?.serial_last_error ??
         (error ? String(error) : undefined) ??
         `${health?.total_readings ?? 0} readings stored`
       }
     >
-      <span className={`relative flex h-2 w-2`}>
-        {label === "Sensor live" && (
-          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dot} opacity-60`} />
-        )}
-        <span className={`relative inline-flex h-2 w-2 rounded-full ${dot}`} />
-      </span>
+      <span
+        className={`inline-flex h-2 w-2 rounded-full ${dot} ${live ? "badge-breathe" : ""}`}
+      />
       <Icon size={13} />
       {label}
     </span>
