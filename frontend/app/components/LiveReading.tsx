@@ -94,12 +94,12 @@ function Stat({
 }) {
   return (
     <div
-      className="group relative overflow-hidden rounded-xl border border-border bg-surface-2 p-4"
+      className="group relative isolate overflow-hidden rounded-xl border border-border bg-surface-2 p-4"
       style={{ borderLeft: `3px solid ${accent}` }}
     >
-      {/* accent bloom that lifts on hover */}
+      {/* accent bloom in the corner — sits behind the text (-z-10) */}
       <div
-        className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-15 blur-2xl transition-opacity duration-300 group-hover:opacity-30"
+        className="pointer-events-none absolute -right-8 -top-10 -z-10 h-24 w-24 rounded-full opacity-15 blur-2xl transition-opacity duration-300 group-hover:opacity-30"
         style={{ background: accent }}
       />
       <div className="flex items-center gap-2 text-sm text-muted">
