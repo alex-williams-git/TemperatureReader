@@ -52,11 +52,12 @@ export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: n
   // Recomputed each minute so the live window's "end" keeps up with "now"
   // Base window is always at the week window level
   const now = useNow(tickSeconds * 1000);
-  const rootWindow = useMemo(() => getLiveWindow(ROOT_WINDOW_LEVEL, now, tzOffsetMinutes()), [now]);
+  const rootWindow = useMemo(() => getLiveWindow(ROOT_WINDOW_LEVEL, now, tzOffsetMinutes(), false), [now]);
 
   // Top window is the window currently being viewed
   const topWindow = windows.length ? windows[windows.length - 1] : null;
-  const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.windowLevelId, now, tzOffsetMinutes()) : null; // a live top window re-resolves against the clock each tick
+  const isLiveShift = topWindow != null && now > topWindow.end;
+  const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.windowLevelId, now, tzOffsetMinutes(), isLiveShift) : null;
   const curWindow = liveTopWindow ?? topWindow ?? rootWindow;
 
   const windowLevel = WINDOW_LEVELS[curWindow.windowLevelId];
