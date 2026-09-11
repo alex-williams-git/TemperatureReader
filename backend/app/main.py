@@ -14,12 +14,13 @@ from .config import settings
 from .db import (
     aggregate,
     count_readings,
+    get_weekly_summary,
     history,
     history_range,
     init_db,
     latest_reading,
 )
-from .models import AggregateBucket, Health, Reading
+from .models import AggregateBucket, Health, Reading, WeeklySummary
 from .serial_reader import SerialReader
 
 logging.basicConfig(
@@ -36,6 +37,13 @@ BUCKET_SECONDS = {
     "ten_min": 600,
     "minute": 60,
 }
+
+# Weekly-summary temp bands (°C) — matches thermal-profile.json's idle /
+# sustained_workload / heavy_gaming bands for this machine
+TEMP_LOW_MIN_C = 21.1
+TEMP_LOW_MAX_C = 28.3
+TEMP_MEDIUM_MAX_C = 35.0
+TEMP_HIGH_MAX_C = 46.1
 
 
 @asynccontextmanager
@@ -140,3 +148,24 @@ def readings_aggregate(
         )
         for r in rows
     ]
+
+@app.get("/readings/weekly_summary", response_model=WeeklySummary)
+def readings_weekly_summary(
+    start: str = Query(..., description="ISO-8601 UTC, inclusive"),
+    end: str = Query(..., description="ISO-8601 UTC, exclusive"),
+) -> WeeklySummary:
+    # Weekly summary of readings inside a window. Capped at a week's worth of
+    # readings even at the DHT11's fastest possible ~2s cadence
+    summary = get_weekly_summary(
+        start,
+        end,
+        limit=7 * 24 * 60 * 30,
+        low_min_c=TEMP_LOW_MIN_C,
+        low_max_c=TEMP_LOW_MAX_C,
+        medium_max_c=TEMP_MEDIUM_MAX_C,
+        high_max_c=TEMP_HIGH_MAX_C,
+    )
+    if summary is None:
+        raise HTTPException(status_code=404, detail="No readings recorded yet")
+
+    return WeeklySummary(**summary)

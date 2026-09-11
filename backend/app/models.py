@@ -30,3 +30,11 @@ class Health(BaseModel):
     serial_last_error: str | None
     last_reading_ts: str | None
     total_readings: int
+
+class WeeklySummary(BaseModel):
+    readings: int
+    avg_temp_c: float
+    avg_temp_f: float
+    percent_in_low: float
+    percent_in_medium: float
+    percent_in_high: float
