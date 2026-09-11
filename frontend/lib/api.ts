@@ -36,6 +36,15 @@ export interface Health {
   total_readings: number;
 }
 
+export interface WeeklySummary {
+  readings: number;
+  avg_temp_c: number;
+  avg_temp_f: number;
+  percent_in_low: number;
+  percent_in_medium: number;
+  percent_in_high: number;
+}
+
 // SWR fetcher: the key IS the path (e.g. "/readings/latest").
 export async function fetcher<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);

@@ -153,10 +153,10 @@ def readings_weekly_summary(
     start: str = Query(..., description="ISO-8601 UTC, inclusive"),
     end: str = Query(..., description="ISO-8601 UTC, exclusive"),
 ) -> WeeklySummary:
-    # Weekly summary of readings inside a window.
-    row = history_range(start, end)
+    # Weekly summary of readings inside a window. Capped at a week's worth of readings
+    row = history_range(start, end, limit=7 * 24 * 60 * 30)
 
-    if row is None:
+    if not row:
         raise HTTPException(status_code=404, detail="No readings recorded yet")
 
     readings = len(row)
