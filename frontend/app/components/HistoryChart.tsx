@@ -44,14 +44,14 @@ function bucketToPoints(b: AggregateBucket, unit: Unit) {
   };
 }
 
-export function HistoryChart({ unit }: { unit: Unit }) {
+export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: number }) {
   // The drill/pan stack. Empty = the live view.
   // Entries are frozen windows unless live, in which case they re-resolve against the clock each tick.
   const [windows, setWindows] = useState<TimeWindow[]>([]);
 
   // Recomputed each minute so the live window's "end" keeps up with "now"
   // Base window is always at the week window level
-  const now = useNow(60_000);
+  const now = useNow(tickSeconds * 1000);
   const rootWindow = useMemo(() => getLiveWindow(ROOT_WINDOW_LEVEL, now, tzOffsetMinutes()), [now]);
 
   // Top window is the window currently being viewed
