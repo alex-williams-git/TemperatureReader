@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Check, Timer } from "lucide-react";
+import { getTickSeconds } from "@/lib/format";
 
 export function ClockTickSetter({
     tickSeconds,
@@ -10,24 +12,51 @@ export function ClockTickSetter({
     onChange: (seconds: number) => void;
 }){
     const [draft, setDraft] = useState(tickSeconds.toString());
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        if (!saved) return;
+        const id = setTimeout(() => setSaved(false), 1500);
+        return () => clearTimeout(id);
+        }, [saved]);
 
     return(
-        <div className="inline-flex overflow-hidden rounded-lg border border-border bg-surface text-sm">
-            <form onSubmit={(e) => {e.preventDefault(); onChange(Number(getTickSeconds(Number(draft))));}}>
-                <input type="text" value={draft} className="w-32" placeholder="5 - 60 seconds"
-                    onChange={(e) => setDraft(e.target.value)} />
-                <button type="submit" className="px-3 py-1.5 font-medium transition active:scale-95 text-muted hover:text-primary hover:bg-primary-soft/50">
-                    Submit
+        <section className="panel flex flex-wrap items-center gap-3 p-4">
+            <label htmlFor="tick-seconds" className="flex items-center gap-2 text-sm font-medium text-muted">
+                <Timer size={16} className="text-primary" />
+                Live update interval
+            </label>
+
+            <form
+                className="flex items-center gap-2"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    onChange(Number(getTickSeconds(Number(draft))));
+                    setSaved(true);
+                }}
+            >
+                <input
+                    id="tick-seconds"
+                    type="text"
+                    inputMode="numeric"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="5–60"
+                    className="w-20 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm tabular-nums text-text outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <span className="text-xs text-muted">sec</span>
+
+                <button
+                    type="submit"
+                    className={
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white shadow-sm transition active:scale-95 " +
+                        (saved ? "bg-ok" : "bg-primary hover:bg-primary-hover")
+                    }
+                >
+                    {saved ? <Check size={14} /> : null}
+                    {saved ? "Saved" : "Submit"}
                 </button>
             </form>
-        </div>
+        </section>
     );
-}
-
-function getTickSeconds(tickSeconds: number): string {
-    if (Number.isNaN(tickSeconds)) return "60"; // Default to 60 seconds if input is not a number
-    if (tickSeconds < 5) return "5"; // Minimum tick is 5 seconds. Anything below 0 would break.
-    if (tickSeconds > 60) return "60"; // Maximum tick is 60 seconds
-
-    return tickSeconds.toString();
 }

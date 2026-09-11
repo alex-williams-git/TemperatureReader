@@ -10,10 +10,12 @@ import { HistoryChart } from "./HistoryChart";
 import { ThemeToggle } from "./ThemeToggle";
 import { UnitToggle } from "./UnitToggle";
 import { ClockTickSetter } from "./ClockTickSetter";
+import { getTickSeconds } from "@/lib/format";
 
 export function Dashboard() {
   const [unit, setUnit] = useLocalStorageState<Unit>("dht.unit", "c");
-  const [tickSeconds, setTickSeconds] = useLocalStorageState<number>("dht.tickSeconds", 60);
+  const [tickSecondsRaw, setTickSeconds] = useLocalStorageState<number>("dht.tickSeconds", 60);
+  const tickSeconds = Number(getTickSeconds(tickSecondsRaw));
 
   // This whole dashboard is live/clock/locale/localStorage-driven — nothing
   // here is meaningful to server-render. Gate on the client so the server and
@@ -61,9 +63,9 @@ function DashboardBody({
         <ThemeToggle />
       </header>
 
-      <ClockTickSetter tickSeconds={tickSeconds} onChange={setTickSeconds} />
       <LiveReading unit={unit} />
       <HistoryChart unit={unit} tickSeconds={tickSeconds}/>
+      <ClockTickSetter tickSeconds={tickSeconds} onChange={setTickSeconds} />
 
       <footer className="pb-4 text-center text-xs text-muted">
         Polls the FastAPI backend · readings stored in SQLite
