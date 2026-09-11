@@ -39,9 +39,9 @@ export interface TimeWindow {
 
 export const ROOT_WINDOW_LEVEL: WindowLevelId = "week";
 
-/** When a live window's newest bucket is still filling, re-query just that
- *  bucket at this finer size so the current period shows sub-bucket movement
- *  instead of one flat point. `null` at the raw window level (nothing finer). */
+// When a live window's newest bucket is still filling, re-query just that
+// bucket at this finer size so the current period shows sub-bucket movement
+// instead of one flat point. `null` at the raw window level (nothing finer).
 export const TAIL_BUCKET: Record<WindowLevelId, { param: BucketParam; ms: number } | null> = {
   week: { param: "hour", ms: HOUR },
   day: { param: "ten_min", ms: 10 * MIN },
@@ -49,8 +49,8 @@ export const TAIL_BUCKET: Record<WindowLevelId, { param: BucketParam; ms: number
   ten_min: null,
 };
 
-/** Left edge of the fixed-width bucket containing `atMs`, aligned to the
- *  viewer's local clock (matches the backend's tz-aware bucketing). */
+// Left edge of the fixed-width bucket containing `atMs`, aligned to the
+// viewer's local clock (matches the backend's tz-aware bucketing).
 export function getBucketStartTimeInMs(atMs: number, widthMs: number, tzOffsetMin: number): number {
   const off = tzOffsetMin * 60_000;
   return Math.floor((atMs + off) / widthMs) * widthMs - off;
@@ -82,11 +82,11 @@ export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezon
   return { windowLevelId, start, end: start + curWindowLevel.windowSpanMs };
 }
 
-/** Click a bucket in `curWindow` → the child-window-level window starting at that
- *  bucket. The clicked point may sit mid-bucket (a live window splices finer tail
- *  points into the in-progress bucket — e.g. a 12:30 ten-min point on the day
- *  view), so snap the new window's start to the child bucket's own edge,
- *  aligned to the viewer's local clock like the backend's bucketing. */
+// Click a bucket in `curWindow` → the child-window-level window starting at that
+// bucket. The clicked point may sit mid-bucket (a live window splices finer tail
+// points into the in-progress bucket — e.g. a 12:30 ten-min point on the day
+// view), so snap the new window's start to the child bucket's own edge,
+// aligned to the viewer's local clock like the backend's bucketing.
 export function drillInto(curWindow: TimeWindow, clickedMs: number, tzOffsetMin: number): TimeWindow | null {
   const child = WINDOW_LEVELS[curWindow.windowLevelId].childId;
   if (!child) return null;
@@ -102,7 +102,7 @@ export function drillInto(curWindow: TimeWindow, clickedMs: number, tzOffsetMin:
   };
 }
 
-/** Shift the window one full span earlier / later at the same window level. */
+// Shift the window one full span earlier / later at the same window level.
 export function pan(curWindow: TimeWindow, direction: -1 | 1): TimeWindow {
   const span = WINDOW_LEVELS[curWindow.windowLevelId].windowSpanMs;
   return {
@@ -112,15 +112,15 @@ export function pan(curWindow: TimeWindow, direction: -1 | 1): TimeWindow {
   };
 }
 
-/** Does this window still contain "now" (so it's worth auto-refreshing)?
- *  Panned-back / drilled-in windows that end in the past are frozen and don't
- *  poll. `now` of 0 (server snapshot) counts as "not live". */
+// Does this window still contain "now" (so it's worth auto-refreshing)?
+// Panned-back / drilled-in windows that end in the past are frozen and don't
+// poll. `now` of 0 (server snapshot) counts as "not live".
 export function isLive(curWindow: TimeWindow, now: number): boolean {
   return now > 0 && curWindow.end > now;
 }
 
-/** JS getTimezoneOffset() is (UTC - local) in minutes; the API wants the sign
- *  flipped so bucket edges land on the viewer's local midnight / hour. */
+// JS getTimezoneOffset() is (UTC - local) in minutes; the API wants the sign
+// flipped so bucket edges land on the viewer's local midnight / hour.
 export function tzOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();
 }

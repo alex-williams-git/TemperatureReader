@@ -20,7 +20,7 @@ const time = (t: number) =>
 const dayShort = (t: number) =>
   new Date(t).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 
-/** X-axis tick label, tuned per zoom window level. */
+// X-axis tick label, tuned per zoom window level.
 export function axisTick(t: number, windowLevel: WindowLevelId): string {
   switch (windowLevel) {
     case "week":
@@ -33,7 +33,7 @@ export function axisTick(t: number, windowLevel: WindowLevelId): string {
   }
 }
 
-/** Full timestamp for tooltips. `withSeconds` at the raw zoom level. */
+// Full timestamp for tooltips. `withSeconds` at the raw zoom level.
 export function fullStamp(t: number, withSeconds = false): string {
   return `${dayShort(t)} · ${new Date(t).toLocaleTimeString([], {
     hour: "2-digit",
@@ -42,7 +42,7 @@ export function fullStamp(t: number, withSeconds = false): string {
   })}`;
 }
 
-/** Breadcrumb label for a window's starting instant. */
+// Breadcrumb label for a window's starting instant.
 export function crumbLabel(windowLevelId: WindowLevelId, start: number): string {
   switch (windowLevelId) {
     case "week":
@@ -56,7 +56,7 @@ export function crumbLabel(windowLevelId: WindowLevelId, start: number): string 
   }
 }
 
-/** "12s ago", "3m ago", "1h ago" — for the live reading's freshness. */
+// "12s ago", "3m ago", "1h ago" — for the live reading's freshness.
 export function ago(iso: string | null): string {
   if (!iso) return "never";
   const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);

@@ -27,7 +27,7 @@ import { crumbLabel, pickTemp, unitSymbol, type Unit } from "@/lib/format";
 import { useNow } from "@/lib/clientHooks";
 import { MetricChart, type ChartPoint } from "./MetricChart";
 
-/** One aggregate bucket → a temp point and a humidity point. */
+// One aggregate bucket → a temp point and a humidity point.
 function bucketToPoints(b: AggregateBucket, unit: Unit) {
   const t = new Date(b.bucket_start).getTime();
   const avg = unit === "c" ? b.temp_c_avg : b.temp_f_avg;

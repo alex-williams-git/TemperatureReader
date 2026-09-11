@@ -10,13 +10,11 @@ function safeParse<T>(raw: string, fallback: T): T {
   }
 }
 
-/**
- * useState-like API backed by localStorage, implemented as an external store
- * (which is exactly what localStorage is). getServerSnapshot returns the
- * fallback, so SSR and the first client render agree; the real value arrives
- * on the first commit without a hydration mismatch. Also syncs across tabs via
- * the `storage` event.
- */
+// useState-like API backed by localStorage, implemented as an external store
+// (which is exactly what localStorage is). getServerSnapshot returns the
+// fallback, so SSR and the first client render agree; the real value arrives
+// on the first commit without a hydration mismatch. Also syncs across tabs via
+// the `storage` event.
 export function useLocalStorageState<T>(
   key: string,
   fallback: T,
@@ -38,7 +36,7 @@ export function useLocalStorageState<T>(
     try {
       raw = window.localStorage.getItem(key);
     } catch {
-      /* storage blocked — fall through to fallback */
+      // storage blocked — fall through to fallback
     }
     if (raw !== cache.current.raw) {
       cache.current = {
@@ -56,7 +54,7 @@ export function useLocalStorageState<T>(
       try {
         window.localStorage.setItem(key, JSON.stringify(next));
       } catch {
-        /* ignore */
+        // ignore
       }
       // `storage` only fires in *other* tabs — dispatch so this tab updates too.
       window.dispatchEvent(new StorageEvent("storage", { key }));

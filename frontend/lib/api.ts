@@ -36,7 +36,7 @@ export interface Health {
   total_readings: number;
 }
 
-/** SWR fetcher: the key IS the path (e.g. "/readings/latest"). */
+// SWR fetcher: the key IS the path (e.g. "/readings/latest").
 export async function fetcher<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
