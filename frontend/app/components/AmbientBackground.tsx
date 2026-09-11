@@ -2,13 +2,14 @@
 
 import useSWR from "swr";
 import { fetcher, type Reading } from "@/lib/api";
-import thermalProfile from "../../../thermal-profile.json";
+import thermalProfile from "../../thermal-profile.json";
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 // Map the live reading onto two 0..1 knobs the CSS reads:
 //  - warmth: calibrated to this machine's observed range (see
-//    ../../../thermal-profile.json, shared with rgb-bridge) — idle/light
+//    ../../thermal-profile.json — synced from the repo root by
+//    scripts/sync-thermal-profile.js, shared with rgb-bridge) — idle/light
 //    load at the low end, peak gaming at the high end. So everyday temps
 //    stay cool-ish and only a genuinely hot box glows amber. Mapped on
 //    Celsius so the °C/°F toggle doesn't change the mood.

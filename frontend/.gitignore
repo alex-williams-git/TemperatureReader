@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# synced from ../thermal-profile.json by scripts/sync-thermal-profile.js
+# (predev/prebuild) — repo root is the source of truth, not this copy
+/thermal-profile.json
