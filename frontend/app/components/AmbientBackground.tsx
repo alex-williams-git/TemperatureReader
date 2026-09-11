@@ -2,16 +2,22 @@
 
 import useSWR from "swr";
 import { fetcher, type Reading } from "@/lib/api";
+import thermalProfile from "../../thermal-profile.json";
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 // Map the live reading onto two 0..1 knobs the CSS reads:
-//  - warmth: calibrated to this machine's observed range — 23-30°C at idle /
-//    light load, 32-37°C under sustained load, ~44°C peak while gaming. So
-//    everyday temps stay cool-ish and only a genuinely hot box glows amber.
-//    Mapped on Celsius so the °C/°F toggle doesn't change the mood.
+//  - warmth: calibrated to this machine's observed range (see
+//    ../../thermal-profile.json — synced from the repo root by
+//    scripts/sync-thermal-profile.js, shared with rgb-bridge) — idle/light
+//    load at the low end, peak gaming at the high end. So everyday temps
+//    stay cool-ish and only a genuinely hot box glows amber. Mapped on
+//    Celsius so the °C/°F toggle doesn't change the mood.
 //  - mist: dry air (<35% RH) barely registers; ~75%+ gives a visible haze.
-const warmth = (tempC: number) => clamp01((tempC - 23) / (44 - 23));
+const WARMTH_FLOOR_C = thermalProfile.bands.idle.low_c;
+const WARMTH_CEILING_C = thermalProfile.bands.heavy_gaming.high_c;
+const warmth = (tempC: number) =>
+  clamp01((tempC - WARMTH_FLOOR_C) / (WARMTH_CEILING_C - WARMTH_FLOOR_C));
 const mistFor = (humidity: number) => clamp01((humidity - 35) / 40);
 
 export function AmbientBackground() {

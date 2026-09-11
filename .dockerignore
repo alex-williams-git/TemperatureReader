@@ -1,0 +1,25 @@
+# Applies to the frontend service's build context (repo root -- see
+# docker-compose.yml). backend/ has its own build context and its own
+# backend/.dockerignore.
+
+# Unrelated top-level dirs -- keep the frontend build context lean
+arduino/
+backend/
+serial-bridge/
+rgb-bridge/
+.git/
+
+# frontend/ -- mirrors the old frontend/.dockerignore
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.env*
+!frontend/.env*.example
+frontend/npm-debug.log*
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/.DS_Store
+frontend/README.md
+frontend/Dockerfile
+frontend/.dockerignore

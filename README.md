@@ -29,6 +29,8 @@ v1 scope is **sensing + logging/dashboard only** — no active fan control yet.
 | [`arduino/TemperatureSerializer/`](arduino/TemperatureSerializer/) | PlatformIO project for the Uno (`env:uno`) |
 | [`backend/`](backend/) | FastAPI service — serial reader, SQLite, REST API ([README](backend/README.md)) |
 | [`frontend/`](frontend/) | Next.js dashboard — live values + drill-down charts |
+| [`serial-bridge/`](serial-bridge/) | Native Windows helper — bridges the Arduino's COM port to TCP so the Dockerized backend can read it ([README](serial-bridge/README.md)) |
+| [`rgb-bridge/`](rgb-bridge/) | Native Windows helper (optional) — polls the backend and drives case/motherboard RGB with a temp-based color spectrum via OpenRGB ([README](rgb-bridge/README.md)) |
 
 ## Terminology
 
@@ -132,6 +134,23 @@ The dashboard shows the live reading plus a **click-to-drill history chart**:
 week → day → hour → 10-minute raw, with a shaded min/max band, a °C/°F
 toggle, and light/dark themes. Each zoom level is a server-side time-bucket
 query, so it stays fast regardless of how much history accumulates.
+
+### 5. Optional: sync case/motherboard RGB to the current temp
+
+Requires [OpenRGB](https://openrgb.org/) running locally with its SDK server
+enabled (Settings → SDK Server → Enable), and the backend already up (from
+step 2 or step 3 above — either works).
+
+```powershell
+rgb-bridge\run-rgb-bridge.bat
+```
+
+Polls `/readings/latest` and pushes a cyan → purple → orange color (cold →
+hot) to OpenRGB every few seconds. Native, like `serial-bridge` — RGB device
+control needs Windows-native hardware access a Linux container can't reach.
+Shares [`thermal-profile.json`](thermal-profile.json) at the repo root with
+the frontend's ambient warmth effect, so both agree on what counts as "hot."
+See [`rgb-bridge/README.md`](rgb-bridge/README.md) for config and details.
 
 ## Status
 

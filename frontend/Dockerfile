@@ -1,17 +1,24 @@
 # Next.js 16 dashboard, built to a standalone server for a slim runtime image.
 # syntax=docker/dockerfile:1
+#
+# Build context is the REPO ROOT, not this directory (see docker-compose.yml
+# `frontend.build.context: .`) -- AmbientBackground.tsx imports
+# ../../../thermal-profile.json, the shared calibration source also read by
+# rgb-bridge, which lives outside frontend/. All COPY sources below are
+# therefore repo-root-relative.
 
 # ---- deps: install node_modules from the lockfile ----
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 # ---- builder: compile the app + trace a standalone server bundle ----
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/ .
+COPY thermal-profile.json /thermal-profile.json
 ENV NEXT_TELEMETRY_DISABLED=1
 # Baked into the /api rewrite so the standalone server proxies to the compose
 # service (also set at runtime in docker-compose.yml).

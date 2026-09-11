@@ -93,10 +93,15 @@ dht11-fan-project/
 │   ├── lib/                    # api.ts, zoom.ts, format.ts, clientHooks.ts, …
 │   ├── .env.local.example
 │   ├── next.config.ts          # output: "standalone" + /api -> backend rewrite
+│   │                           #   + turbopack.root (see gotchas)
 │   ├── package.json
-│   ├── .dockerignore
 │   └── Dockerfile             # multi-stage, standalone output, node:22-alpine
+│                               #   built with repo root as context (see gotchas)
+├── thermal-profile.json       # shared idle/sustained/gaming °C bands — read by
+│                               #   rgb-bridge and imported by the frontend
 ├── docker-compose.yml         # backend + frontend; named volume for the DB
+├── .dockerignore               # frontend build context (repo root); backend
+│                               #   still uses its own backend/.dockerignore
 ├── .env.example               # compose reads .env here (SERIAL_PORT, ports)
 └── .gitignore
 ```
@@ -126,6 +131,17 @@ dht11-fan-project/
 - **The `/api` rewrite target is baked at `next build` time**, not read at
   runtime — `frontend/Dockerfile` sets `BACKEND_ORIGIN=http://backend:8000`
   in the builder stage.
+- **The frontend's Docker build context is the repo root, not `frontend/`.**
+  `AmbientBackground.tsx` imports `../../../thermal-profile.json`, the
+  shared calibration source also read by `rgb-bridge` — a file outside
+  `frontend/`. That needs two things to work: `frontend/next.config.ts` sets
+  `turbopack.root` to the repo root (Turbopack otherwise refuses to resolve
+  modules outside the Next project dir, even for plain `next build`/`dev`),
+  and `docker-compose.yml` builds the frontend with `context: .` +
+  `dockerfile: frontend/Dockerfile` so the image build can see the file too
+  — ignore rules for that context live in the root `.dockerignore`, not
+  `frontend/.dockerignore` (removed; Docker only reads the ignore file at
+  the actual build context root).
 
 ## Current Arduino sketch (working, prints readings to serial)
 
