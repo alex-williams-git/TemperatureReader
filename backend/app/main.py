@@ -19,7 +19,7 @@ from .db import (
     init_db,
     latest_reading,
 )
-from .models import AggregateBucket, Health, Reading
+from .models import AggregateBucket, Health, Reading, WeeklySummary
 from .serial_reader import SerialReader
 
 logging.basicConfig(
@@ -139,4 +139,33 @@ def readings_aggregate(
             humidity_max=round(r["humidity_max"], 1),
         )
         for r in rows
+    ]
+
+@app.get("/readings/weekly_summary", response_model=WeeklySummary)
+def readings_weekly_summary(
+    start: str = Query(..., description="ISO-8601 UTC, inclusive"),
+    end: str = Query(..., description="ISO-8601 UTC, exclusive"),
+) -> WeeklySummary:
+    # Weekly summary of readings inside a window.
+    row = history_range(start, end)
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="No readings recorded yet")
+
+    readings = len(row)
+    avg_temp_c = sum(r["temp_c"] for r in row) / readings
+    avg_temp_f = sum(r["temp_f"] for r in row) / readings
+    percent_in_low = sum(1 for r in row if r["temp_c"] >= 21.1 and r["temp_c"] < 28.3) / readings * 100
+    percent_in_medium = sum(1 for r in row if r["temp_c"] >= 28.3 and r["temp_c"] < 35.0) / readings * 100
+    percent_in_high = sum(1 for r in row if r["temp_c"] >= 35.0 and r["temp_c"] < 46.1) / readings * 100
+
+    return[
+        WeeklySummary(
+            readings=readings,
+            avg_temp_c=round(avg_temp_c, 2),
+            avg_temp_f=round(avg_temp_f, 2),
+            percent_in_low=round(percent_in_low, 2),
+            percent_in_medium=round(percent_in_medium, 2),
+            percent_in_high=round(percent_in_high, 2)
+        )
     ]
