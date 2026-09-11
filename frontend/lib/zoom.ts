@@ -59,7 +59,7 @@ export function getBucketStartTimeInMs(atMs: number, widthMs: number, tzOffsetMi
 // In the past version, only the initial week view window was defined. The following function
 // is an implementation of live windows at different window levels, which will be used to create a
 // live view of the data based on the current time and timezone offset.
-export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezoneOffsetMin: number): TimeWindow {
+export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezoneOffsetMin: number, isLiveShift: boolean): TimeWindow {
   const curWindowLevel = WINDOW_LEVELS[windowLevelId];
 
   // Root: window spans many buckets with no natural anchor, so we have to handle differently
@@ -67,6 +67,14 @@ export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezon
     const edgeMs = WINDOW_LEVELS[curWindowLevel.childId!].windowSpanMs; // 1 DAY
     const end = getBucketStartTimeInMs(now, edgeMs, timezoneOffsetMin) + edgeMs;
     return { windowLevelId, start: end - curWindowLevel.windowSpanMs, end };
+  }
+
+  // If we are on a shifted live view, show the next 3 buckets
+  if (isLiveShift) {
+    const additionalLength = curWindowLevel.childId ? WINDOW_LEVELS[curWindowLevel.childId].windowSpanMs * 3 : MIN * 3;
+    const end = now + additionalLength;
+
+    return {windowLevelId, start: end - curWindowLevel.windowSpanMs, end: end};
   }
 
   // Deeper window levels: the window *is* one clock block — snap to it, flip at its edge.
