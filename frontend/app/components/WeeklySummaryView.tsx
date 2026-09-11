@@ -3,10 +3,9 @@
 import type { WeeklySummary } from "@/lib/api";
 import { pickTemp, unitSymbol, type Unit } from "@/lib/format";
 
-// Labels/colors match thermal-profile.json's idle / sustained_workload /
-// heavy_gaming bands (see backend/app/main.py's TEMP_*_C thresholds).
-// Tailwind needs full class-name literals to see them at build time, so
-// these are spelled out per band rather than built with `bg-${tone}`.
+// Labels/colors match thermal-profile.json's idle / sustained_workload / heavy_gaming bands
+// Tailwind needs full class-name literals to see them at build time, so these are spelled out 
+// per band rather than built with `bg-${tone}`.
 const BANDS = [
   {
     key: "percent_in_low",

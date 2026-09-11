@@ -159,6 +159,7 @@ def readings_weekly_summary(
     if not row:
         raise HTTPException(status_code=404, detail="No readings recorded yet")
 
+    # Consider moving this calculation to its own function in db.py
     readings = len(row)
     avg_temp_c = sum(r["temp_c"] for r in row) / readings
     avg_temp_f = sum(r["temp_f"] for r in row) / readings

@@ -41,9 +41,7 @@ export function LiveReading({ unit }: { unit: Unit }) {
     return () => clearInterval(id);
   }, []);
 
-  // Recomputed only at local midnight, not on every render, so the summary's
-  // SWR key — and thus the underlying 7-day window — advances once a day
-  // instead of drifting with the live clock above.
+  // Recomputed only at local midnight, not on every render.
   const [summaryWindowEnd, setSummaryWindowEnd] = useState(() => Date.now());
   useEffect(() => {
     const id = setTimeout(
@@ -61,8 +59,6 @@ export function LiveReading({ unit }: { unit: Unit }) {
         })}`
       : null,
     fetcher,
-    // Refresh only follows the daily window change above, not tab-focus/
-    // reconnect churn — a 7-day aggregate has nothing new to say more often.
     { keepPreviousData: true, revalidateOnFocus: false, revalidateOnReconnect: false },
   );
 
