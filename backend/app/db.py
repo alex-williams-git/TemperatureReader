@@ -1,10 +1,7 @@
-"""SQLite access.
-
-Single process, one writer (the serial reader thread) and a handful of
-readers (API request handlers). WAL mode lets reads proceed while the
-writer holds a write transaction; a threading.Lock serializes writes so
-two code paths can never interleave an INSERT + COMMIT.
-"""
+# SQLite access.
+#
+# Single process, one writer (the serial reader thread) and a handful of
+# readers (API request handlers).
 import sqlite3
 import threading
 from pathlib import Path
@@ -64,8 +61,8 @@ def count_readings() -> int:
 
 
 def history(since: str | None, limit: int) -> list[sqlite3.Row]:
-    """Most recent `limit` rows (optionally with ts >= `since`), returned
-    oldest-first so a chart can plot them left-to-right."""
+    # Most recent `limit` rows (optionally with ts >= `since`), returned
+    # oldest-first so a chart can plot them left-to-right.
     conn = _require_conn()
     if since:
         rows = conn.execute(
@@ -81,24 +78,56 @@ def history(since: str | None, limit: int) -> list[sqlite3.Row]:
 
 
 def history_range(start: str, end: str, limit: int) -> list[sqlite3.Row]:
-    """Raw readings with start <= ts < end, oldest-first. Used by the
-    frontend's deepest zoom level (a ~10-minute window)."""
+    # Raw readings with start <= ts < end, oldest-first. Used by the
+    # frontend's deepest zoom level (a ~10-minute window).
     return _require_conn().execute(
         "SELECT * FROM readings WHERE ts >= ? AND ts < ? ORDER BY id ASC LIMIT ?",
         (start, end, limit),
     ).fetchall()
 
 
+def get_weekly_summary(
+    start: str,
+    end: str,
+    limit: int,
+    low_min_c: float,
+    low_max_c: float,
+    medium_max_c: float,
+    high_max_c: float,
+) -> dict | None:
+    # Reading count, average temp, and % of readings in each of three
+    # temp bands over [start, end). Band edges are caller-supplied (main.py
+    # owns what they mean); returns None if the window has no readings.
+    rows = history_range(start, end, limit)
+    if not rows:
+        return None
+
+    readings = len(rows)
+    return {
+        "readings": readings,
+        "avg_temp_c": round(sum(r["temp_c"] for r in rows) / readings, 2),
+        "avg_temp_f": round(sum(r["temp_f"] for r in rows) / readings, 2),
+        "percent_in_low": round(
+            sum(1 for r in rows if low_min_c <= r["temp_c"] < low_max_c) / readings * 100, 2
+        ),
+        "percent_in_medium": round(
+            sum(1 for r in rows if low_max_c <= r["temp_c"] < medium_max_c) / readings * 100, 2
+        ),
+        "percent_in_high": round(
+            sum(1 for r in rows if medium_max_c <= r["temp_c"] < high_max_c) / readings * 100, 2
+        ),
+    }
+
+
 def aggregate(
     start: str, end: str, bucket_seconds: int, tz_offset_seconds: int = 0
 ) -> list[sqlite3.Row]:
-    """Group readings in [start, end) into fixed-width time buckets, returning
-    avg/min/max per bucket for each metric.
-
-    Bucket edges are aligned to local midnight/hour by shifting the epoch by
-    `tz_offset_seconds` before the floor-divide and shifting back after — so a
-    viewer in UTC-4 sees days that start at their midnight, not UTC's.
-    """
+    # Group readings in [start, end) into fixed-width time buckets, returning
+    # avg/min/max per bucket for each metric.
+    #
+    # Bucket edges are aligned to local midnight/hour by shifting the epoch by
+    # `tz_offset_seconds` before the floor-divide and shifting back after — so a
+    # viewer in UTC-4 sees days that start at their midnight, not UTC's.
     return _require_conn().execute(
         """
         SELECT

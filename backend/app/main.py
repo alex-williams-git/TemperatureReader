@@ -14,6 +14,7 @@ from .config import settings
 from .db import (
     aggregate,
     count_readings,
+    get_weekly_summary,
     history,
     history_range,
     init_db,
@@ -153,31 +154,18 @@ def readings_weekly_summary(
     start: str = Query(..., description="ISO-8601 UTC, inclusive"),
     end: str = Query(..., description="ISO-8601 UTC, exclusive"),
 ) -> WeeklySummary:
-    # Weekly summary of readings inside a window. Capped at a week's worth of readings
-    row = history_range(start, end, limit=7 * 24 * 60 * 30)
-
-    if not row:
+    # Weekly summary of readings inside a window. Capped at a week's worth of
+    # readings even at the DHT11's fastest possible ~2s cadence
+    summary = get_weekly_summary(
+        start,
+        end,
+        limit=7 * 24 * 60 * 30,
+        low_min_c=TEMP_LOW_MIN_C,
+        low_max_c=TEMP_LOW_MAX_C,
+        medium_max_c=TEMP_MEDIUM_MAX_C,
+        high_max_c=TEMP_HIGH_MAX_C,
+    )
+    if summary is None:
         raise HTTPException(status_code=404, detail="No readings recorded yet")
 
-    # Consider moving this calculation to its own function in db.py
-    readings = len(row)
-    avg_temp_c = sum(r["temp_c"] for r in row) / readings
-    avg_temp_f = sum(r["temp_f"] for r in row) / readings
-    percent_in_low = (
-        sum(1 for r in row if TEMP_LOW_MIN_C <= r["temp_c"] < TEMP_LOW_MAX_C) / readings * 100
-    )
-    percent_in_medium = (
-        sum(1 for r in row if TEMP_LOW_MAX_C <= r["temp_c"] < TEMP_MEDIUM_MAX_C) / readings * 100
-    )
-    percent_in_high = (
-        sum(1 for r in row if TEMP_MEDIUM_MAX_C <= r["temp_c"] < TEMP_HIGH_MAX_C) / readings * 100
-    )
-
-    return WeeklySummary(
-        readings=readings,
-        avg_temp_c=round(avg_temp_c, 2),
-        avg_temp_f=round(avg_temp_f, 2),
-        percent_in_low=round(percent_in_low, 2),
-        percent_in_medium=round(percent_in_medium, 2),
-        percent_in_high=round(percent_in_high, 2),
-    )
+    return WeeklySummary(**summary)
