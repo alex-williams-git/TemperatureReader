@@ -65,3 +65,12 @@ export function ago(iso: string | null): string {
   if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
   return `${Math.round(secs / 86400)}d ago`;
 }
+
+// General utility to sanitize the tickSeconds input from the user. 
+export function getTickSeconds(tickSeconds: number): string {
+    if (Number.isNaN(tickSeconds)) return "60"; // Default to 60 seconds if input is not a number
+    if (tickSeconds < 5) return "5"; // Minimum tick is 5 seconds. Anything below 0 would break.
+    if (tickSeconds > 60) return "60"; // Maximum tick is 60 seconds
+
+    return tickSeconds.toString();
+}
