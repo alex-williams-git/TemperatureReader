@@ -4,13 +4,9 @@ export type Unit = "c" | "f";
 
 export const unitSymbol = (u: Unit) => (u === "c" ? "°C" : "°F");
 
-export function pickTemp(
-  c: number | null | undefined,
-  f: number | null | undefined,
-  unit: Unit,
-): number | null {
-  const v = unit === "c" ? c : f;
-  return v == null || Number.isNaN(v) ? null : v;
+export function pickTemp(c: number | null | undefined, f: number | null | undefined, unit: Unit,): number | null {
+  const tempUnit = unit === "c" ? c : f;
+  return tempUnit == null || Number.isNaN(tempUnit) ? null : tempUnit;
 }
 
 // ---- time (all rendered in the viewer's local zone) ----------------------
