@@ -1,0 +1,8 @@
+{
+  "$comment": "Observed DHT11 ambient-air bands near the developer's PC. Single source of truth for temp-to-color/warmth calibration (rgb-bridge, frontend ambient effect). Temps in Celsius; source measurements were taken in Fahrenheit, converted and rounded to 1 decimal to match the DHT11's own precision.",
+  "bands": {
+    "idle": { "low_c": 21.1, "high_c": 28.3, "source_f": "70-83" },
+    "sustained_workload": { "low_c": 28.3, "high_c": 35.0, "source_f": "83-95" },
+    "heavy_gaming": { "low_c": 35.0, "high_c": 46.1, "source_f": "95-115" }
+  }
+}

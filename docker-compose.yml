@@ -23,7 +23,12 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      # Repo root, not ./frontend -- the frontend imports
+      # ../../../thermal-profile.json (shared with rgb-bridge), which lives
+      # outside frontend/. See frontend/Dockerfile's header comment.
+      context: .
+      dockerfile: frontend/Dockerfile
     # The /api rewrite target is baked in at image build time
     # (ENV BACKEND_ORIGIN in frontend/Dockerfile => http://backend:8000).
     ports:

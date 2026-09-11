@@ -52,15 +52,16 @@ backend's, so it gets its own `.venv` rather than reusing
 | `RGB_OPENRGB_HOST` | `127.0.0.1` | |
 | `RGB_OPENRGB_PORT` | `6742` | OpenRGB SDK server default |
 | `RGB_OPENRGB_NAME` | `dht11-rgb-bridge` | shown as the connected client in the OpenRGB app |
-| `RGB_TEMP_C_MIN` | `23.0` | spectrum floor — blue end |
-| `RGB_TEMP_C_MAX` | `44.0` | spectrum ceiling — red end |
+| `RGB_TEMP_C_MIN` | `../thermal-profile.json` → `bands.idle.low_c` (21.1) | spectrum floor — blue end |
+| `RGB_TEMP_C_MAX` | `../thermal-profile.json` → `bands.heavy_gaming.high_c` (46.1) | spectrum ceiling — red end |
 | `RGB_RECONNECT_DELAY` | `3.0` | seconds between OpenRGB reconnect tries |
 | `RGB_REQUEST_TIMEOUT` | `5.0` | seconds, HTTP calls to the backend |
 
-The min/max default to the same 23–44°C anchors the frontend's ambient
-warmth effect uses (`AmbientBackground.tsx`) — the observed idle-to-peak-
-gaming range on this machine — so the physical RGB and the on-screen glow
-agree.
+The min/max default to [`thermal-profile.json`](../thermal-profile.json) at
+the repo root — this machine's observed idle-to-peak-gaming range — which
+the frontend's ambient warmth effect (`AmbientBackground.tsx`) also reads,
+so the physical RGB and the on-screen glow agree. Set `RGB_TEMP_C_MIN`/`MAX`
+to override just this script without touching the shared file.
 
 ## Verifying
 

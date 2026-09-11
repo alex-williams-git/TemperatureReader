@@ -6,14 +6,20 @@ it talks to OpenRGB. Requires the OpenRGB app to be running on this machine
 with its SDK server enabled (Settings -> SDK Server -> Enable, or launched
 with --server).
 
+Spectrum floor/ceiling default to the idle-low/gaming-high anchors in
+../thermal-profile.json -- the repo's single source of truth for this
+machine's observed temp bands, also used by the frontend's ambient warmth
+effect. Override with RGB_TEMP_C_MIN/MAX below if you want this script's
+spectrum to diverge from that shared calibration.
+
 Config (environment variables, all optional):
     RGB_BACKEND_URL       default http://localhost:8000
     RGB_POLL_INTERVAL     default 3.0    (seconds between reads; matches the DHT11's own ~2s floor)
     RGB_OPENRGB_HOST      default 127.0.0.1
     RGB_OPENRGB_PORT      default 6742   (OpenRGB SDK server default)
     RGB_OPENRGB_NAME      default dht11-rgb-bridge (shown in the OpenRGB app)
-    RGB_TEMP_C_MIN        default 23.0   (spectrum floor -- blue end)
-    RGB_TEMP_C_MAX        default 44.0   (spectrum ceiling -- red end)
+    RGB_TEMP_C_MIN        default: thermal-profile.json bands.idle.low_c
+    RGB_TEMP_C_MAX        default: thermal-profile.json bands.heavy_gaming.high_c
     RGB_RECONNECT_DELAY   default 3.0    (seconds between OpenRGB reconnect
                                           tries)
     RGB_REQUEST_TIMEOUT   default 5.0    (seconds, HTTP calls to the backend)
@@ -22,21 +28,27 @@ Config (environment variables, all optional):
 from __future__ import annotations
 
 import colorsys
+import json
 import os
 import time
+from pathlib import Path
 
 import requests
 from openrgb import OpenRGBClient
 from openrgb.utils import RGBColor
 
+_THERMAL_PROFILE_PATH = Path(__file__).resolve().parent.parent / "thermal-profile.json"
+_thermal_profile = json.loads(_THERMAL_PROFILE_PATH.read_text(encoding="utf-8"))
+_DEFAULT_TEMP_C_MIN = _thermal_profile["bands"]["idle"]["low_c"]
+_DEFAULT_TEMP_C_MAX = _thermal_profile["bands"]["heavy_gaming"]["high_c"]
 
 BACKEND_URL = os.environ.get("RGB_BACKEND_URL", "http://localhost:8000")
 POLL_INTERVAL = float(os.environ.get("RGB_POLL_INTERVAL", "3.0"))
 OPENRGB_HOST = os.environ.get("RGB_OPENRGB_HOST", "127.0.0.1")
 OPENRGB_PORT = int(os.environ.get("RGB_OPENRGB_PORT", "6742"))
 OPENRGB_NAME = os.environ.get("RGB_OPENRGB_NAME", "dht11-rgb-bridge")
-TEMP_C_MIN = float(os.environ.get("RGB_TEMP_C_MIN", "23.0"))
-TEMP_C_MAX = float(os.environ.get("RGB_TEMP_C_MAX", "44.0"))
+TEMP_C_MIN = float(os.environ.get("RGB_TEMP_C_MIN", str(_DEFAULT_TEMP_C_MIN)))
+TEMP_C_MAX = float(os.environ.get("RGB_TEMP_C_MAX", str(_DEFAULT_TEMP_C_MAX)))
 RECONNECT_DELAY = float(os.environ.get("RGB_RECONNECT_DELAY", "3.0"))
 REQUEST_TIMEOUT = float(os.environ.get("RGB_REQUEST_TIMEOUT", "5.0"))
 
