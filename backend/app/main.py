@@ -37,6 +37,13 @@ BUCKET_SECONDS = {
     "minute": 60,
 }
 
+# Weekly-summary temp bands (°C) — matches thermal-profile.json's idle /
+# sustained_workload / heavy_gaming bands for this machine
+TEMP_LOW_MIN_C = 21.1
+TEMP_LOW_MAX_C = 28.3
+TEMP_MEDIUM_MAX_C = 35.0
+TEMP_HIGH_MAX_C = 46.1
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -155,17 +162,21 @@ def readings_weekly_summary(
     readings = len(row)
     avg_temp_c = sum(r["temp_c"] for r in row) / readings
     avg_temp_f = sum(r["temp_f"] for r in row) / readings
-    percent_in_low = sum(1 for r in row if r["temp_c"] >= 21.1 and r["temp_c"] < 28.3) / readings * 100
-    percent_in_medium = sum(1 for r in row if r["temp_c"] >= 28.3 and r["temp_c"] < 35.0) / readings * 100
-    percent_in_high = sum(1 for r in row if r["temp_c"] >= 35.0 and r["temp_c"] < 46.1) / readings * 100
+    percent_in_low = (
+        sum(1 for r in row if TEMP_LOW_MIN_C <= r["temp_c"] < TEMP_LOW_MAX_C) / readings * 100
+    )
+    percent_in_medium = (
+        sum(1 for r in row if TEMP_LOW_MAX_C <= r["temp_c"] < TEMP_MEDIUM_MAX_C) / readings * 100
+    )
+    percent_in_high = (
+        sum(1 for r in row if TEMP_MEDIUM_MAX_C <= r["temp_c"] < TEMP_HIGH_MAX_C) / readings * 100
+    )
 
-    return[
-        WeeklySummary(
-            readings=readings,
-            avg_temp_c=round(avg_temp_c, 2),
-            avg_temp_f=round(avg_temp_f, 2),
-            percent_in_low=round(percent_in_low, 2),
-            percent_in_medium=round(percent_in_medium, 2),
-            percent_in_high=round(percent_in_high, 2)
-        )
-    ]
+    return WeeklySummary(
+        readings=readings,
+        avg_temp_c=round(avg_temp_c, 2),
+        avg_temp_f=round(avg_temp_f, 2),
+        percent_in_low=round(percent_in_low, 2),
+        percent_in_medium=round(percent_in_medium, 2),
+        percent_in_high=round(percent_in_high, 2),
+    )
