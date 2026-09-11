@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export function ClockTickSetter({
     tickSeconds,
     onChange,
@@ -7,11 +9,13 @@ export function ClockTickSetter({
     tickSeconds: number;
     onChange: (seconds: number) => void;
 }){
+    const [draft, setDraft] = useState(tickSeconds.toString());
+
     return(
         <div className="inline-flex overflow-hidden rounded-lg border border-border bg-surface text-sm">
-            <form onSubmit={(e) => {e.preventDefault(); onChange(Number(getTickSeconds(tickSeconds)));}}>
-                <input type="text" value={tickSeconds} className="w-32" placeholder="5 - 60 seconds"
-                    onChange={(e) => onChange(Number(e.target.value))} />
+            <form onSubmit={(e) => {e.preventDefault(); onChange(Number(getTickSeconds(Number(draft))));}}>
+                <input type="text" value={draft} className="w-32" placeholder="5 - 60 seconds"
+                    onChange={(e) => setDraft(e.target.value)} />
                 <button type="submit" className="px-3 py-1.5 font-medium transition active:scale-95 text-muted hover:text-primary hover:bg-primary-soft/50">
                     Submit
                 </button>
