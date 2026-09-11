@@ -6,11 +6,12 @@ it talks to OpenRGB. Requires the OpenRGB app to be running on this machine
 with its SDK server enabled (Settings -> SDK Server -> Enable, or launched
 with --server).
 
-Spectrum floor/ceiling default to the idle-low/gaming-high anchors in
-../thermal-profile.json -- the repo's single source of truth for this
-machine's observed temp bands, also used by the frontend's ambient warmth
-effect. Override with RGB_TEMP_C_MIN/MAX below if you want this script's
-spectrum to diverge from that shared calibration.
+Cyan (cold) -> purple (midpoint) -> orange (hot). Spectrum floor/ceiling
+default to the idle-low/gaming-high anchors in ../thermal-profile.json --
+the repo's single source of truth for this machine's observed temp bands,
+also used by the frontend's ambient warmth effect. Override with
+RGB_TEMP_C_MIN/MAX below if you want this script's spectrum to diverge from
+that shared calibration.
 
 Config (environment variables, all optional):
     RGB_BACKEND_URL       default http://localhost:8000
@@ -27,7 +28,6 @@ Config (environment variables, all optional):
 
 from __future__ import annotations
 
-import colorsys
 import json
 import os
 import time
@@ -52,25 +52,31 @@ TEMP_C_MAX = float(os.environ.get("RGB_TEMP_C_MAX", str(_DEFAULT_TEMP_C_MAX)))
 RECONNECT_DELAY = float(os.environ.get("RGB_RECONNECT_DELAY", "3.0"))
 REQUEST_TIMEOUT = float(os.environ.get("RGB_REQUEST_TIMEOUT", "5.0"))
 
-#  Hue sweep for the spectrum, in degrees: cold end -> hot end.
-#  240 = blue, 0 = red. TODO: revisit if a 3-stop blue/green/red ramp reads
-#  better on the actual hardware than a raw hue sweep through cyan/green.
-HUE_COLD_DEG = 240.0
-HUE_HOT_DEG = 0.0
+# Three-stop spectrum: cold end -> midpoint -> hot end.
+COLOR_COLD = RGBColor(0, 255, 255)    # cyan
+COLOR_MID = RGBColor(140, 0, 255)     # purple
+COLOR_HOT = RGBColor(255, 100, 0)     # orange
 
 
 def log(msg: str) -> None:
     print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} rgb-bridge: {msg}", flush=True)
 
 def sanitize_range(n: float) -> float:
-    return min(1.0, max(0.0, n)) # Restricts warmth to [0,1] so hue doesn't wrap around the color wheel.
+    return min(1.0, max(0.0, n)) # Restricts warmth to [0,1] so it can't overshoot past either end stop.
 
-# Map a Celsius reading onto the configured blue-to-red spectrum.
+def _lerp_color(a: RGBColor, b: RGBColor, t: float) -> RGBColor:
+    return RGBColor(
+        round(a.red + (b.red - a.red) * t),
+        round(a.green + (b.green - a.green) * t),
+        round(a.blue + (b.blue - a.blue) * t),
+    )
+
+# Map a Celsius reading onto the cyan -> purple -> orange spectrum.
 def get_rgb_color_from_temp(temp_c: float) -> RGBColor:
     warmth = sanitize_range((temp_c - TEMP_C_MIN) / (TEMP_C_MAX - TEMP_C_MIN))
-    hue_deg = HUE_COLD_DEG + (HUE_HOT_DEG - HUE_COLD_DEG) * warmth
-    r, g, b = colorsys.hsv_to_rgb(hue_deg / 360.0, 1.0, 1.0)
-    return RGBColor(round(r * 255), round(g * 255), round(b * 255))
+    if warmth < 0.5:
+        return _lerp_color(COLOR_COLD, COLOR_MID, warmth / 0.5)
+    return _lerp_color(COLOR_MID, COLOR_HOT, (warmth - 0.5) / 0.5)
 
 # Return the latest temp_c from the backend, or None if not available yet.
 def fetch_latest_temp_c(session: requests.Session) -> float | None:
