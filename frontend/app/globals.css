@@ -154,12 +154,12 @@ body {
     ),
     radial-gradient(
       55% 50% at 90% 2%,
-      color-mix(in oklab, var(--temp) calc(10% + var(--warmth) * 40%), transparent),
+      color-mix(in oklab, var(--temp) calc(8% + var(--warmth) * 52%), transparent),
       transparent 70%
     ),
     radial-gradient(
       65% 55% at 78% 100%,
-      color-mix(in oklab, var(--temp) calc(8% + var(--warmth) * 28%), transparent),
+      color-mix(in oklab, var(--temp) calc(6% + var(--warmth) * 40%), transparent),
       transparent 72%
     );
   opacity: 0.9;
@@ -218,13 +218,20 @@ body {
   to   { transform: translate3d(-4vw, -6vh, 0) scale(1.15); }
 }
 
-/* A calmer replacement for the ConnectionBadge ping: a soft breathing glow. */
+/* A calmer replacement for the ConnectionBadge ping. The dot itself eases in
+   and out with a soft blurred glow that pulses in place — no expanding ring. */
 @keyframes badge-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent); }
-  50%      { box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 0%, transparent); }
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 5px 1px color-mix(in oklab, currentColor 45%, transparent);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 2px 0 color-mix(in oklab, currentColor 12%, transparent);
+  }
 }
 .badge-breathe {
-  animation: badge-breathe 2.4s ease-in-out infinite;
+  animation: badge-breathe 3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

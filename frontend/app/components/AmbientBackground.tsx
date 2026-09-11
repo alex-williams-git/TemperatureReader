@@ -6,10 +6,12 @@ import { fetcher, type Reading } from "@/lib/api";
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 // Map the live reading onto two 0..1 knobs the CSS reads:
-//  - warmth: indoor comfort band. <=19°C reads cool/blue, >=26°C fully warm.
+//  - warmth: calibrated to this machine's observed range — 23-30°C at idle /
+//    light load, 32-37°C under sustained load, ~44°C peak while gaming. So
+//    everyday temps stay cool-ish and only a genuinely hot box glows amber.
 //    Mapped on Celsius so the °C/°F toggle doesn't change the mood.
 //  - mist: dry air (<35% RH) barely registers; ~75%+ gives a visible haze.
-const warmth = (tempC: number) => clamp01((tempC - 19) / (26 - 19));
+const warmth = (tempC: number) => clamp01((tempC - 23) / (44 - 23));
 const mistFor = (humidity: number) => clamp01((humidity - 35) / 40);
 
 export function AmbientBackground() {
