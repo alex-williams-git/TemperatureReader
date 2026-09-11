@@ -13,16 +13,6 @@ export function pickTemp(
   return v == null || Number.isNaN(v) ? null : v;
 }
 
-export function fmtTemp(v: number | null, unit: Unit, digits = 1): string {
-  if (v == null || Number.isNaN(v)) return "–";
-  return `${v.toFixed(digits)}${unitSymbol(unit)}`;
-}
-
-export function fmtPercent(v: number | null, digits = 0): string {
-  if (v == null || Number.isNaN(v)) return "–";
-  return `${v.toFixed(digits)}%`;
-}
-
 // ---- time (all rendered in the viewer's local zone) ----------------------
 
 const time = (t: number) =>

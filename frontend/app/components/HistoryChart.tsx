@@ -190,9 +190,10 @@ export function HistoryChart({ unit }: { unit: Unit }) {
   const atNow = curWindow.end >= now;
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+    <section className="panel p-5">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h2 className="mr-1 text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 className="mr-1 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
+          <span className="h-3 w-1 rounded-full bg-primary" />
           History
         </h2>
 
@@ -306,7 +307,7 @@ function IconBtn({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-muted transition-colors hover:text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-muted transition hover:text-primary hover:border-primary/40 hover:bg-primary-soft/50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
     >
       {children}
     </button>

@@ -18,10 +18,10 @@ export function UnitToggle({
           onClick={() => onChange(u)}
           aria-pressed={unit === u}
           className={
-            "px-3 py-1.5 font-medium transition-colors " +
+            "px-3 py-1.5 font-medium transition active:scale-95 " +
             (unit === u
               ? "bg-primary text-white"
-              : "text-muted hover:text-primary")
+              : "text-muted hover:text-primary hover:bg-primary-soft/50")
           }
         >
           °{u.toUpperCase()}
