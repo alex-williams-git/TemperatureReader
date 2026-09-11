@@ -234,9 +234,17 @@ body {
   animation: badge-breathe 3s ease-in-out infinite;
 }
 
+/* Reduced-motion: a status dot that says "live" should still read as alive,
+   so keep a slow, shallow opacity fade (no movement, no glow) rather than
+   freezing it. Everything positional is disabled outright. */
+@keyframes badge-breathe-reduced {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ambient__mist--a,
   .ambient__mist--b,
   .ambient__mist--c { animation: none; }
-  .badge-breathe { animation: none; }
+  .badge-breathe { animation: badge-breathe-reduced 4s ease-in-out infinite; }
 }
