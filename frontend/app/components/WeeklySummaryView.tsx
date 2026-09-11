@@ -92,7 +92,9 @@ export function WeeklySummaryView({
       </div>
 
       <p className="text-xs text-muted">
-        {summary ? `Based on ${summary.readings.toLocaleString()} readings` : "Loading…"}
+        {summary
+          ? `Based on ${summary.readings.toLocaleString()} readings · refreshes daily at midnight`
+          : "Loading…"}
       </p>
     </div>
   );

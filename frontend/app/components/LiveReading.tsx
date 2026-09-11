@@ -10,9 +10,13 @@ import { ConnectionBadge } from "./ConnectionBadge";
 import { WeeklySummaryView } from "./WeeklySummaryView";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// The 7-day window is a slow-moving aggregate — no need to re-derive it more
-// than every few minutes (unlike the live reading's 5s poll).
-const SUMMARY_WINDOW_REFRESH_MS = 5 * 60 * 1000;
+
+// Milliseconds from `from` until the viewer's next local midnight.
+function msUntilNextMidnight(from: number): number {
+  const next = new Date(from);
+  next.setHours(24, 0, 0, 0); // rolls over to midnight of the following day
+  return next.getTime() - from;
+}
 
 type View = "live" | "summary";
 
@@ -37,13 +41,17 @@ export function LiveReading({ unit }: { unit: Unit }) {
     return () => clearInterval(id);
   }, []);
 
-  // Recomputed periodically rather than on every render so the summary's SWR
-  // key doesn't change (and refetch) every second along with the clock above.
+  // Recomputed only at local midnight, not on every render, so the summary's
+  // SWR key — and thus the underlying 7-day window — advances once a day
+  // instead of drifting with the live clock above.
   const [summaryWindowEnd, setSummaryWindowEnd] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setSummaryWindowEnd(Date.now()), SUMMARY_WINDOW_REFRESH_MS);
-    return () => clearInterval(id);
-  }, []);
+    const id = setTimeout(
+      () => setSummaryWindowEnd(Date.now()),
+      msUntilNextMidnight(summaryWindowEnd),
+    );
+    return () => clearTimeout(id);
+  }, [summaryWindowEnd]);
 
   const { data: summary, error: summaryError } = useSWR<WeeklySummary>(
     view === "summary"
@@ -53,7 +61,9 @@ export function LiveReading({ unit }: { unit: Unit }) {
         })}`
       : null,
     fetcher,
-    { keepPreviousData: true },
+    // Refresh only follows the daily window change above, not tab-focus/
+    // reconnect churn — a 7-day aggregate has nothing new to say more often.
+    { keepPreviousData: true, revalidateOnFocus: false, revalidateOnReconnect: false },
   );
 
   const temp = reading ? pickTemp(reading.temp_c, reading.temp_f, unit) : null;
