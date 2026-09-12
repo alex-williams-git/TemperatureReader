@@ -56,7 +56,8 @@ export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: n
 
   // Top window is the window currently being viewed
   const topWindow = windows.length ? windows[windows.length - 1] : null;
-  const isLiveShift = topWindow != null && now > topWindow.end;
+
+  const isLiveShift = topWindow != null && now >= topWindow.end;
   const liveTopWindow = topWindow?.live ? getLiveWindow(topWindow.windowLevelId, now, tzOffsetMinutes(), isLiveShift) : null;
   const curWindow = liveTopWindow ?? topWindow ?? rootWindow;
 
