@@ -89,10 +89,12 @@ export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: n
         tz_offset_minutes: tzOffsetMinutes(),
       })}`;
 
+  const live = isLive(curWindow, now);
+
   const { data, error, isLoading } = useSWR<Reading[] | AggregateBucket[]>(
     key,
     fetcher,
-    { refreshInterval: isLive(curWindow, now) ? 20_000 : 0, keepPreviousData: true },
+    { refreshInterval: live ? 20_000 : 0, keepPreviousData: true },
   );
 
   // If the window still contains "now", its newest top-level bucket is only
@@ -265,6 +267,7 @@ export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: n
             canDrill={canDrill}
             onDrill={drill}
             loading={isLoading}
+            live={live}
           />
           <MetricChart
             title="Humidity (%)"
@@ -278,6 +281,7 @@ export function HistoryChart({ unit, tickSeconds }: { unit: Unit; tickSeconds: n
             canDrill={canDrill}
             onDrill={drill}
             loading={isLoading}
+            live={live}
           />
         </div>
       )}
