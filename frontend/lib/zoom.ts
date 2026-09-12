@@ -69,10 +69,12 @@ export function getLiveWindow(windowLevelId: WindowLevelId, now: number, timezon
     return { windowLevelId, start: end - curWindowLevel.windowSpanMs, end };
   }
 
-  // If we are on a shifted live view, show the next 3 buckets
+  // If we are on a shifted live view, show the next 3 buckets. Then, anchor to the
+  // current increment (the level's own child-bucket width — 1 hour for "day", 10 min for "hour", 1 min for "ten_min") 
   if (isLiveShift) {
-    const additionalLength = curWindowLevel.childId ? WINDOW_LEVELS[curWindowLevel.childId].windowSpanMs * 3 : MIN * 3;
-    const end = now + additionalLength;
+    const incrementMs = curWindowLevel.childId ? WINDOW_LEVELS[curWindowLevel.childId].windowSpanMs : MIN;
+    const anchor = getBucketStartTimeInMs(now, incrementMs, timezoneOffsetMin);
+    const end = anchor + incrementMs * 3;
 
     return {windowLevelId, start: end - curWindowLevel.windowSpanMs, end: end};
   }
