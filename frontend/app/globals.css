@@ -226,3 +226,23 @@ body {
   .ambient__mist--b,
   .ambient__mist--c { animation: none; }
 }
+
+/* ---- Live chart dot ------------------------------------------------------
+   Pulsing ring on the head-of-line point of a chart still tracking "now".
+   transform-box/-origin are required on SVG shapes: without them, percentage
+   transform-origin resolves against the SVG viewport, not the circle, and
+   the ring scales off toward the corner instead of breathing in place. */
+.chart-live-dot__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chart-live-pulse 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes chart-live-pulse {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-live-dot__ring { animation: none; opacity: 0; }
+}

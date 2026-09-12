@@ -34,6 +34,7 @@ interface Props {
   canDrill: boolean;
   onDrill: (t: number) => void;
   loading: boolean;
+  live: boolean; // window still contains "now" — breathe the head-of-line dot
 }
 
 export function MetricChart({
@@ -48,21 +49,34 @@ export function MetricChart({
   canDrill,
   onDrill,
   loading,
+  live,
 }: Props) {
   const hasData = data.some((d) => d.avg != null);
   const showDots = data.length <= 40;
 
+  // Last real (non-anchor, non-null) point — where the "still live" dot goes.
+  const lastLiveIndex = useMemo(() => {
+    if (!live) return -1;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (!data[i].anchor && data[i].avg != null) return i;
+    }
+    return -1;
+  }, [live, data]);
+
   // Skip markers on the synthetic anchor point (and, for resting dots, on gaps).
+  // The live head always gets a dot even when resting dots are otherwise hidden.
   type DotArgs = { cx?: number; cy?: number; index?: number; payload?: ChartPoint };
-  const renderDot = showDots
-    ? ({ cx, cy, index, payload }: DotArgs) => {
-        const key = `dot-${index}`;
-        if (cx == null || cy == null || payload?.anchor || payload?.avg == null) {
-          return <g key={key} />;
-        }
-        return <circle key={key} cx={cx} cy={cy} r={2.5} fill={color} />;
-      }
-    : false;
+  const renderDot = ({ cx, cy, index, payload }: DotArgs) => {
+    const key = `dot-${index}`;
+    if (cx == null || cy == null || payload?.anchor || payload?.avg == null) {
+      return <g key={key} />;
+    }
+    if (index === lastLiveIndex) {
+      return <LiveDot key={key} cx={cx} cy={cy} color={color} />;
+    }
+    if (!showDots) return <g key={key} />;
+    return <circle key={key} cx={cx} cy={cy} r={2.5} fill={color} />;
+  };
   const renderActiveDot = ({ cx, cy, index, payload }: DotArgs) => {
     const key = `adot-${index}`;
     if (cx == null || cy == null || payload?.anchor) return <g key={key} />;
@@ -201,5 +215,17 @@ export function MetricChart({
         )}
       </div>
     </div>
+  );
+}
+
+// A breathing dot at the live edge of the chart — a solid center with a
+// pulsing ring, echoing the "sensor live" indicator in ConnectionBadge but
+// drawn in SVG so it tracks the chart's own coordinates.
+function LiveDot({ cx, cy, color }: { cx: number; cy: number; color: string }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={4} fill={color} className="chart-live-dot__ring" />
+      <circle cx={cx} cy={cy} r={3} fill={color} stroke="var(--surface)" strokeWidth={1.5} />
+    </g>
   );
 }
